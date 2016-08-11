@@ -33,14 +33,17 @@ public:
 	arma::vec getoff(int layer);
 	arma::vec evalnn( arma::vec input, int func);
 	arma::vec evalnn_layer( arma::vec input, int func, int layernum);
-	void backprop(arma::vec input, arma::vec expected, double rate);
+	void singlebackprop(vec_datum datum, double rate);
+	void epochbackprop(vec_data *data, double rate);
+	void trainingbackprop(vec_data *data, double rate, double objerr, int max_gen, bool ratedecay);
+	double calcerror(vec_data *data, int func);
 	int outdim();
 	int indim();
 	int outdim(int i); // For the in and out of a layer
 	int indim(int i);
 	/*
-	To add a polarized plane. 
-	v is the plane (the weights of the edges from the imput nodes), 
+	To add a node. 
+	v is the plane (the weights of the edges from the input nodes), 
 	w is the weights of the new edges to the second hidden layer
 	*/
 	bool addnode(int layernum, int nodenum, arma::rowvec v, double off,arma::vec w); 

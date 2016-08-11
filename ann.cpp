@@ -131,22 +131,56 @@ end:
 	return false;
 }
 
-void nn::backprop(vec input, vec expected, double rate)
+void nn::singlebackprop(vec_datum datum, double rate)
 {
 	vec nexterror;
-	vec error = (evalnn(input,0)- expected);
+	vec error = (evalnn(datum.coords,0)- datum.value);
 	double outputj,outputk,curweight;
 	int outdim,indim =0;
 	int j,k=0;
 	int i = depth;
 	for(i=depth;i>0;i--){
-		mat curlayout = evalnn_layer(input,0,i);
-		mat prelayout = (evalnn_layer(input,0,i-1)).t();
+		mat curlayout = evalnn_layer(datum.coords,0,i);
+		mat prelayout = (evalnn_layer(datum.coords,0,i-1)).t();
 		error= error%curlayout%(mat(size(curlayout),fill::ones) - curlayout); 
 		mat movemat = rate*(error*prelayout);
 		layers[i-1].A = layers[i-1].A - movemat;
 		layers[i-1].b = layers[i-1].b - rate*error;
 		error = (layers[i-1].A.t()*error);
+	}
+}
+
+void nn::epochbackprop(vec_data *D, double rate)
+{
+	int j =0;
+	int numdata = D->numdata;
+	for(j=0;j<numdata;j++){
+		this->singlebackprop(D->data[j],rate);
+	}	
+}
+
+void nn::trainingbackprop(vec_data *D, double rate, double objerr, int max_gen, bool ratedecay)
+{
+	int i=0;
+	double inputrate = rate;
+	double curerr = this->calcerror(D,0);
+	while(i<max_gen && curerr > objerr){
+		if(ratedecay){inputrate = rate*((max_gen-(double)i)/max_gen);} 
+		this->epochbackprop(D,inputrate);
+		curerr = this->calcerror(D,0);
+		i++;
+	}
+}
+
+double nn::calcerror(vec_data *D, int func)
+{
+	int i =0;
+	int numdata = D->numdata;
+	vec nnvalue;
+	double curerr;
+	for(i=0;i<numdata;i++){
+		nnvalue = this->evalnn(D->data[i].coords,func);
+		curerr += (norm(nnvalue-(D->data[i].value)))/numdata;
 	}
 }
 
