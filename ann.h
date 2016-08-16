@@ -12,21 +12,33 @@ typedef struct vec_data {
 	vec_datum *data;
 } vec_data;
 
+void delvec_data(vec_data *D);
+
+typedef struct errtracker {
+	int numerr;
+	arma::vec totvecerr;
+	int numVecs;
+	int * arrayindex;
+} errtracker;
+
 typedef struct nnlayer {
 	arma::mat A;
 	arma::vec b;
 } nnlayer;
 
 class nn {
-	private:
+private:
 	int depth;
 	nnlayer *layers;
 	void initlayerofnn(int i,int indim, int outdim);
+	void smartaddnode1(vec_data *data, int func);
+	errtracker locateClosestHyperplanes(vec_data *data,int func, double errorthreshold);
 public:
 	nn(int inputdim, int width1, int width2, int outdim);
 	nn(int inputdim, int width1, int outdim);
 	nn(const char *filename);
 	bool save(const char *filename);
+	void print();
 	~nn();
 	void randfillnn(double weight);
 	arma::mat getmat(int layer);
@@ -46,7 +58,10 @@ public:
 	v is the plane (the weights of the edges from the input nodes), 
 	w is the weights of the new edges to the second hidden layer
 	*/
+	double erravgslope(vec_data *data, int func);
 	bool addnode(int layernum, int nodenum, arma::rowvec v, double off,arma::vec w); 
+	void adaptivebackprop1(vec_data *D, double rate, double objerr, int max_gen, int max_nodes, bool ratedecay);
+	void animatedadaptivebackprop1(vec_data *D, double rate, double objerr, int max_gen, int max_nodes, bool ratedecay);
 };
 
 

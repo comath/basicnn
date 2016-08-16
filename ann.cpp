@@ -1,13 +1,18 @@
 #include <iostream>
 #include <armadillo>
 #include "ann.h"
+#include "annpgm.h"
 
 using namespace std;
 using namespace arma;
 
 #define Malloc(type,n) (type *)malloc((n)*sizeof(type))
 
-
+void delvec_data(vec_data *D)
+{
+	delete[] D->data;
+	delete D;
+}
 
 void nn::initlayerofnn(int i,int indim, int outdim)
 {
@@ -64,6 +69,17 @@ nn::nn(const char *filename){
 nn::~nn()
 {
 	delete[] layers;
+}
+
+void nn::print()
+{
+	int i=0;
+	for(i=0;i<depth;i++){
+		cout << "Layer " << i << " matrix: " << endl;
+		cout << layers[i].A << endl;
+		cout << "Layer " << i << " offset: " << endl;
+		cout << layers[i].b << endl;
+	}
 }
 
 void nn::randfillnn(double weight)
@@ -126,7 +142,6 @@ bool nn::save(const char *filename)
 	}
 	
 end:
-	if(fp.is_open()) fp.close();
 	printf("Save failed\n");
 	return false;
 }
@@ -177,11 +192,14 @@ double nn::calcerror(vec_data *D, int func)
 	int i =0;
 	int numdata = D->numdata;
 	vec nnvalue;
-	double curerr;
+	double precomputeerror =0;
+	double curerr = 0;
 	for(i=0;i<numdata;i++){
 		nnvalue = this->evalnn(D->data[i].coords,func);
-		curerr += (norm(nnvalue-(D->data[i].value)))/numdata;
+		precomputeerror = norm(nnvalue-(D->data[i].value));
+		curerr += (precomputeerror*precomputeerror);
 	}
+	return curerr/numdata;
 }
 
 int nn::outdim() {	return layers[depth-1].A.n_rows; }
@@ -215,4 +233,227 @@ bool nn::addnode(int layernum, int nodenum, arma::rowvec v, double offset,arma::
 		return false;
 	}
 	return true;
+}
+
+#ifndef RUNAVGWID
+#define RUNAVGWID 20  //variable to easily change the width of the running average.
+#endif
+double nn::erravgslope(vec_data *data, int func)
+{
+	static int calltimes = 0;
+	if(calltimes<RUNAVGWID){calltimes++;}
+
+	static double lasterror = 0;
+	static double slopes[RUNAVGWID];
+	double curerr = this->calcerror(data,func);
+	int i=0;
+	for(i=0;i<calltimes-1;i++){
+		slopes[i]=slopes[i+1];
+	}
+	slopes[calltimes-1]= curerr-lasterror;
+	lasterror = curerr;
+	double avg =0;
+	for(i=0;i<calltimes;i++){avg += slopes[i];}
+	return avg/calltimes;
+}
+
+int * minvals(vec v, int numvecs){
+	double x=1000000;  // should be larger than any element of any possible vector
+
+	//THIS NEEDS TO BE IMPROVED TO work with numvecs >2
+	numvecs = 2;
+	int *ret = new int[2];
+	ret[0] = -1;
+	ret[1] = -1;
+	int l = v.n_rows;
+	if(l==1){
+		return ret;
+	}
+	int i = 0;
+	for(i=0;i<l;i++){
+		if(v(i)<0){ v(i)=-v(i);}
+		if(v(i)<x){
+			x = v(i);
+			ret[1] = ret[0];
+			ret[0] = i;
+		}
+	}
+	if(ret[1]=-1){
+		x=1000000;
+		for(i=1;i<l;i++){
+			if(v(i)<x){
+				x = v(i);
+				ret[1] = i;
+			}
+		}
+	}
+	if(ret[0]>ret[1]){
+		return ret;
+	} else {
+		l = ret[0];
+		ret[0] = ret[1];
+		ret[1] = l;
+		return ret;
+	}
+	
+}
+
+//Currently this is only for 2 dimensional inputs.
+
+errtracker nn::locateClosestHyperplanes(vec_data *data, int func, double errorThreshold)
+{
+	int i,j=0;
+	int numnodes = this->outdim(0);
+	int inputdim = this->indim();
+	int numdata = data->numdata;
+	int numnodepairs = numnodes*(numnodes-1)/2;
+	struct errtracker **errArray = new errtracker*[numnodes];
+	printf("I start normaly\n");
+	for(i=0;i<numnodes;i++){ 
+		errArray[i] = new errtracker[i];
+		for(j=0;j<i;j++){
+			errArray[i][j].numVecs = 2;
+			errArray[i][j].numerr = 0;
+			errArray[i][j].totvecerr = zeros<vec>(inputdim);
+			int indexes[2] = {i,j};
+			errArray[i][j].arrayindex = indexes;
+		}
+	}
+	printf("I have allocated memory\n");
+	vec_data *errordata = new vec_data;
+	errordata->data = new vec_datum[numdata];
+	errordata->numdata =0;
+	for(i=0;i<numdata;i++){
+		double err = norm((data->data[i].value-this->evalnn(data->data[i].coords,func)));
+		if(err > errorThreshold){
+			errordata->data[errordata->numdata] = data->data[i];
+			errordata->numdata++;
+		}
+	}
+	int numerrordata = errordata->numdata;
+	printf("I have sorted out the errors there are %d error points\n", numerrordata);
+	vec curErrVec;
+	for(i=0;i<numerrordata;i++){
+		curErrVec = errordata->data[i].coords;
+		vec errDisToHyp = (layers[0].A)*curErrVec;
+		int * errClosestVecIndex = minvals(errDisToHyp,2);
+		printf("Accessing %d,%d\n", errClosestVecIndex[0],errClosestVecIndex[1]);
+		errArray[errClosestVecIndex[0]][errClosestVecIndex[1]].totvecerr += curErrVec;
+		errArray[errClosestVecIndex[0]][errClosestVecIndex[1]].numerr++;
+		delete[] errClosestVecIndex;
+	}
+	printf("I have figured out some stuff\n");
+	int errtrac1,errtrac2=-1;
+	int comparison = -1;
+	for(i=0;i<numnodes;i++){
+		for(j=0;j<i;j++){
+			if(errArray[i][j].numerr > comparison){
+				errtrac1=i; errtrac2=j;
+			}
+		}
+	}
+	errtracker final = errArray[errtrac1][errtrac2];
+	for(i=0;i<numnodes;i++){
+		delete[] errArray[i];
+	}
+	delete[] errArray;
+	return final;
+}
+
+#ifndef ERRORTHRESHOLD
+#define ERRORTHRESHOLD 0.001
+#endif
+
+void nn::smartaddnode1(vec_data *data,int func)
+{
+	printf("NN before insert\n");
+	this->print();
+	int i,j=0;
+	int numnodes = this->outdim(0);
+	printf("%d\n", numnodes);
+	int inputdim = this->indim();
+	int numdata = data->numdata;
+	if(numnodes==1){
+		rowvec v = randu<rowvec>(inputdim);
+		rowvec k = layers[0].A.row(0);
+		double offset = layers[0].b(0);
+		offset = offset*norm(k);
+		if(offset < 0){ offset = -offset;}
+		k = k/norm(k);
+		v = v - dot(v,k)*k;
+		v = v/norm(v);
+		vec w = {1};
+		this->addnode(0,0,v,offset,w);
+	}
+	if(numnodes>1){
+		errtracker errInfo = this->locateClosestHyperplanes(data,func,ERRORTHRESHOLD);
+		printf("The error is nearest HPs %d, %d \n",errInfo.arrayindex[0],errInfo.arrayindex[1]);
+		printf("The total vec error is \n");
+		cout << errInfo.totvecerr << endl;
+		printf("The number of error vecs near here is %d\n", errInfo.numerr);
+		vec localAvgErr = (errInfo.totvecerr)/(errInfo.numerr);
+		int numVecs = errInfo.numVecs;
+		rowvec avgNormal = zeros<rowvec>(inputdim);
+		for(i=0;i<numVecs;i++){
+			rowvec normal = layers[0].A.row(errInfo.arrayindex[i]);
+			if(layers[1].A(0,i)<0){normal = -normal;}
+			avgNormal += (normal)/(norm(normal));
+		}
+		avgNormal = avgNormal/(norm(avgNormal));
+		double offset = dot(avgNormal.t(),localAvgErr);
+
+		vec w = {1}; 
+		this->addnode(0,0,avgNormal,offset,w);
+	}
+	printf("NN after insert\n");
+	this->print();
+}
+
+#ifndef SLOPETHRESHOLD
+#define SLOPETHRESHOLD 0.001
+#endif
+
+void nn::adaptivebackprop1(vec_data *D, double rate, double objerr, int max_gen, int max_nodes, bool ratedecay)
+{
+	int i=0;
+	double inputrate = rate;
+	double curerr = this->calcerror(D,0);
+	double curerrorslope = 0;
+	int curnodes = this->outdim(0);
+	while(i<max_gen && curerr > objerr){
+		if(ratedecay){inputrate = rate*((max_gen-(double)i)/max_gen);} 
+		this->epochbackprop(D,inputrate);
+		curerr = this->calcerror(D,0);
+		curerrorslope = this->erravgslope(D,0);
+		if(this->erravgslope(D,0) < SLOPETHRESHOLD && curnodes < max_nodes){
+			this->smartaddnode1(D,0);
+			curnodes++;
+		}
+		i++;
+	}
+}
+
+void nn::animatedadaptivebackprop1(vec_data *D, double rate, double objerr, int max_gen, int max_nodes, bool ratedecay)
+{
+	int i=0;
+	double inputrate = rate;
+	double curerr = this->calcerror(D,0);
+	double curerrorslope = 0;
+	int curnodes = this->outdim(0);
+	char header[100];
+	while(i<max_gen && curerr > objerr){
+		sprintf(header, "imgfiles/train%05d.ppm",i);
+		write_nn_to_img(this,header,500,500,0);
+		if(ratedecay){inputrate = rate*((max_gen-(double)i)/max_gen);} 
+		this->epochbackprop(D,inputrate);
+		curerr = this->calcerror(D,0);
+		curerrorslope = this->erravgslope(D,0);
+		printf("Error slope: %f Num Nodes: %d Theshold %f\n", curerrorslope, curnodes, -SLOPETHRESHOLD);
+		if(-curerrorslope < SLOPETHRESHOLD && curerrorslope < 0 && curnodes < max_nodes && i>20){
+			printf("Inserting hyperplane. Error slope is %f \n",curerrorslope);
+			this->smartaddnode1(D,0);
+			curnodes++;
+		}
+		i++;
+	}
 }
