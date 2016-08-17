@@ -214,9 +214,11 @@ vec nn::getoff(int layernum){	return layers[layernum].b; }
 // w is the weights of the new edges to the second hidden layer
 
 bool nn::addnode(int layernum, int nodenum, arma::rowvec v, double offset,arma::vec w){
+	/*
 	cout << "Adding Node with vec: " << v;
 	cout << "offset: " << offset << endl;
 	cout << "And selection: " << w << endl;
+	*/
 	int dim1start = this->indim(layernum);
 	int dim2start = this->outdim(layernum);
 	int dim3start = this->outdim(layernum+1);
@@ -371,6 +373,7 @@ newHPInfo nn::locateNewHP(vec_data *data, int func, double errorThreshold)
 		for(j=0;j<i;j++){
 			errArray[i][j].numerr = 0;
 			errArray[i][j].totvecerr = zeros<vec>(inputdim);
+			errArray[i][j].intersection = this->hyperplaneIntersection(i,j);
 			int *indexes = new int[2];
 			indexes[0]=i;
 			indexes[1]=j;
@@ -378,30 +381,34 @@ newHPInfo nn::locateNewHP(vec_data *data, int func, double errorThreshold)
 		}
 	}
 	int numerrors =0;
+	vec intersection;
 	for(i=0;i<numdata;i++){
 		double err = norm((data->data[i].value-this->evalnn(data->data[i].coords,func)));
 		if(err > errorThreshold){
 			indexDistance ID = computeDistToHyperplanesIntersections(data->data[i].coords);
+			intersection = errArray[ID.index[0]][ID.index[1]].intersection;
 			errArray[ID.index[0]][ID.index[1]].totvecerr += (data->data[i].coords);
 			errArray[ID.index[0]][ID.index[1]].numerr++;
 			numerrors++;
 		}
 	}
-	printf("Number of total errors: %d\n", numerrors);
+	//printf("Number of total errors: %d\n", numerrors);
 	int errtrac1,errtrac2=-1;
 	int comparison = -1;
 	for(i=0;i<numnodes;i++){
 		for(j=0;j<i;j++){
-			printf("Number of local errors %d near %d,%d\n", errArray[errtrac1][errtrac2].numerr,i,j);
+			//printf("Number of local errors %d near %d,%d\n", errArray[errtrac1][errtrac2].numerr,i,j);
 			if(errArray[i][j].numerr > comparison){
 				comparison = errArray[i][j].numerr;
 				errtrac1=i; errtrac2=j;
 			}
 		}
 	}
+	/*
 	printf("------\n");
 	printf("Selected %d near %d,%d\n", errArray[errtrac1][errtrac2].numerr,i,j);
 	printf("------\n");
+	*/
 	vec errVec = errArray[errtrac1][errtrac2].totvecerr/(errArray[errtrac1][errtrac2].numerr);
 	errVec = (errVec+(this->hyperplaneIntersection(errtrac1,errtrac2)))/2;
 	
@@ -453,10 +460,12 @@ vec nn::calculateSelectionVector()
 
 void nn::smartaddnode1(vec_data *data,int func)
 {
+	/*
 	printf("------------------------------------------------------------------------\n");
 	printf("NN before insert\n");
 	this->print();
 	printf("------------------------------------------------------------------------\n");
+	*/
 	int i,j=0;
 	int numnodes = this->outdim(0);
 	int inputdim = this->indim();
@@ -482,10 +491,12 @@ void nn::smartaddnode1(vec_data *data,int func)
 			layers[1].b(0) += w(0)/2;
 		}
 	}
+	/*
 	printf("------------------------------------------------------------------------\n");
 	printf("NN after insert\n");
 	this->print();
 	printf("------------------------------------------------------------------------\n");
+	*/
 }
 
 #ifndef SLOPETHRESHOLD
@@ -495,6 +506,7 @@ void nn::smartaddnode1(vec_data *data,int func)
 void nn::adaptivebackprop1(vec_data *D, double rate, double objerr, int max_gen, int max_nodes, bool ratedecay)
 {
 	int i=0;
+	int lastHPChange = 0;
 	double inputrate = rate;
 	double curerr = this->calcerror(D,0);
 	double curerrorslope = 0;
@@ -504,12 +516,41 @@ void nn::adaptivebackprop1(vec_data *D, double rate, double objerr, int max_gen,
 		this->epochbackprop(D,inputrate);
 		curerr = this->calcerror(D,0);
 		curerrorslope = this->erravgslope(D,0);
-		if(this->erravgslope(D,0) < SLOPETHRESHOLD && curnodes < max_nodes){
-			this->smartaddnode1(D,0);
-			curnodes++;
+		if(-curerrorslope < SLOPETHRESHOLD && curerrorslope < 0 && curnodes < max_nodes && i-lastHPChange>50){
+			this->smartaddnode1(D,1);
+			lastHPChange = i;
+			curnodes = this->outdim(0);	
 		}
 		i++;
 	}
+}
+
+double ** nn::erroradaptivebackprop1(vec_data *D, double rate, double objerr, int max_gen, int max_nodes, bool ratedecay)
+{	
+	double **returnerror = new double*[2];
+	returnerror[0] = new double[max_gen];
+	returnerror[1] = new double[max_gen];
+	int i=0;
+	int lastHPChange = 0;
+	double inputrate = rate;
+	double curerr = this->calcerror(D,0);
+	double curerrorslope = 0;
+	int curnodes = this->outdim(0);
+	while(i<max_gen && curerr > objerr){
+		if(ratedecay){inputrate = rate*((max_gen-(double)i)/max_gen);} 
+		this->epochbackprop(D,inputrate);
+		curerr = this->calcerror(D,0);
+		returnerror[0][i] = curerr;
+		returnerror[1][i] = this->calcerror(D,1);
+		curerrorslope = this->erravgslope(D,0);
+		if(-curerrorslope < SLOPETHRESHOLD && curerrorslope < 0 && curnodes < max_nodes && i-lastHPChange>50){
+			this->smartaddnode1(D,1);
+			lastHPChange = i;
+			curnodes = this->outdim(0);	
+		}
+		i++;
+	}
+	return returnerror;
 }
 
 void nn::animatedadaptivebackprop1(vec_data *D, double rate, double objerr, int max_gen, int max_nodes, bool ratedecay)

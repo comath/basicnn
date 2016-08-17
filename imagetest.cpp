@@ -16,13 +16,16 @@ using namespace arma;
 using namespace std;
 
 #ifndef NUMGEN
-#define NUMGEN 500
+#define NUMGEN 50
 #endif
 #ifndef NUMNEUNRT
-#define NUMNEUNRT 500
+#define NUMNEUNRT 50
 #endif
 #ifndef MAXNODES
 #define MAXNODES 20
+#endif
+#ifndef STARTNODES
+#define STARTNODES 3
 #endif
 #define MAXTHREADS 2 // should be a divisor of NUMNEUNET
 
@@ -32,6 +35,7 @@ struct GED_args {
 	int begin;
 	int end;
 	vec_data *D;
+	bool adaptive;
 } GED_args;
 
 void *geterrordata_thread(void *thread_args)
@@ -44,6 +48,7 @@ void *geterrordata_thread(void *thread_args)
 	int end = myargs->end;
 	int tid = myargs->tid;
 	int finaldim = myargs->finaldim;
+	bool adaptive = myargs->adaptive;
 	printf("Opened thread %d covering networks %d to %d \n",tid,begin,end-1);
 
 	int i,j =0;
@@ -63,11 +68,17 @@ void *geterrordata_thread(void *thread_args)
 	sigepocherrdat.open(header);
 	if(sigepocherrdat.is_open()){printf("   Done\n");} else {printf("   Failed\n");}
 
-	int numnodes =1;
+	int numnodes =STARTNODES;
 	printf("Running on nodes %d\n", MAXNODES);
-	for(numnodes=1;numnodes<MAXNODES+1;numnodes++){
-		printf("Creating Neural Network with dim %d,%d,%d\n", 2,numnodes,finaldim);
-		nn *nurnet = new nn(2,numnodes,finaldim);
+	for(numnodes=STARTNODES;numnodes<MAXNODES+1;numnodes++){
+		nn *nurnet;
+		if(adaptive){
+			printf("Creating Neural Network with dim %d,%d,%d for adaptive training\n", 2,STARTNODES,finaldim);
+			nurnet = new nn(2,STARTNODES,finaldim);
+		} else {
+			printf("Creating Neural Network with dim %d,%d,%d\n", 2,numnodes,finaldim);
+			nurnet = new nn(2,numnodes,finaldim);
+		}
 
 		for(j=0;j<NUMGEN;j++){haverages[j]=0;saverages[j]=0;}
 
@@ -80,12 +91,19 @@ void *geterrordata_thread(void *thread_args)
 			sprintf(header, "imgfiles/numnodes%03d/netpre/net%03dnodespre.nn",numnodes,i);
 			nurnet->save(header);
 
-
-			for(j=0;j<NUMGEN;j++){
-				nurnet->epochbackprop(D, 0.05);
-				//printf("%f\n", nurnet->calcerror(D,0));
-				saverages[j] = saverages[j] + nurnet->calcerror(D,0);
-				haverages[j] = haverages[j] + nurnet->calcerror(D,1);
+			if(adaptive){
+				double ** errors = nurnet->erroradaptivebackprop1(D, 0.05, -1, NUMGEN, numnodes, false);
+				for(j=0;j<NUMGEN;j++){
+					saverages[j] = saverages[j] + errors[0][j];
+					haverages[j] = haverages[j] + errors[1][j];
+				}
+			} else {
+				for(j=0;j<NUMGEN;j++){
+					nurnet->epochbackprop(D, 0.05);
+					//printf("%f\n", nurnet->calcerror(D,0));
+					saverages[j] = saverages[j] + nurnet->calcerror(D,0);
+					haverages[j] = haverages[j] + nurnet->calcerror(D,1);
+				}
 			}
 
 			sprintf(header, "imgfiles/numnodes%03d/sigmodpost/testsigmodpost%05d.pgm",numnodes,i);
@@ -123,14 +141,16 @@ void geterrordata(int argc, char *argv[])
 	pm_img *img = new pm_img(argv[2]);
 	int finaldim;
 	if(img->gettype() == 6){ finaldim = 3; } else { finaldim = 1; }
+	bool adaptive = false;
+	if(argc==4 && argv[3][1] == 'a'){ adaptive = true; }
 	
 	printf("Collecting data");
 	vec_data *D = get_vec_data_ppm(img, 3000);
 	printf("  done\n");
 	char header[100];
 	mkdir("imgfiles",0777);
-	int numnodes = 1;
-	for(numnodes=1;numnodes<MAXNODES+1;numnodes++){
+	int numnodes = STARTNODES;
+	for(numnodes=STARTNODES;numnodes<MAXNODES+1;numnodes++){
 		sprintf(header, "imgfiles/numnodes%03d",numnodes);
 		mkdir(header,0777);
 		sprintf(header, "imgfiles/numnodes%03d/sigmodpre",numnodes);
@@ -165,6 +185,7 @@ void geterrordata(int argc, char *argv[])
 		thread_args[i].D = D;
 		thread_args[i].begin = i*(NUMNEUNRT/MAXTHREADS);
 		thread_args[i].end = (i+1)*(NUMNEUNRT/MAXTHREADS);
+		thread_args[i].adaptive = adaptive;
 		rc = pthread_create(&threads[i], NULL, geterrordata_thread, (void *)&thread_args[i]);
 		if (rc){
 			cout << "Error:unable to create thread," << rc << endl;
@@ -239,7 +260,7 @@ void adaptivetraining(int argc, char *argv[])
 	mkdir("imgfiles",0777);
 	mkdir("imgfiles/sig",0777);
 	mkdir("imgfiles/hea",0777);
-	nurnet->animatedadaptivebackprop1(D, 0.05, -1, generations, 10, false);
+	nurnet->animatedadaptivebackprop1(D, 0.05, -1, generations, 6, false);
 	bool test = nurnet->save("test1.nn");
 	delvec_data(D);
 	delete nurnet;
@@ -255,7 +276,7 @@ int main(int argc, char *argv[])
 		animatetraining(argc, argv);
 		return 0;
 	}
-	if(argc == 3 && argv[1][0] == '-' && argv[1][1] == 'b'){
+	if((argc == 3 || argc == 4)  && argv[1][0] == '-' && argv[1][1] == 'e'){
 		int start_s=clock();
 		geterrordata(argc, argv);
 		int stop_s=clock();

@@ -77,6 +77,7 @@ public:
 	bool addnode(int layernum, int nodenum, arma::rowvec v, double off,arma::vec w); 
 	void adaptivebackprop1(vec_data *D, double rate, double objerr, int max_gen, int max_nodes, bool ratedecay);
 	void animatedadaptivebackprop1(vec_data *D, double rate, double objerr, int max_gen, int max_nodes, bool ratedecay);
+	double ** erroradaptivebackprop1(vec_data *D, double rate, double objerr, int max_gen, int max_nodes, bool ratedecay);
 };
 
 
