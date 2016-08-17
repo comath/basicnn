@@ -13,9 +13,9 @@ char nextch(FILE *fp)
 	return ch;
 }
 
-pm_img::pm_img(char *filename)
+pm_img::pm_img(const char *filename)
 {
-	printf("Opening file %s\n",filename);
+	//printf("Opening file %s\n",filename);
 	FILE *imgfile;
 	//log_info("Opening file %s\n",filename);
 	imgfile = fopen(filename,"r");
@@ -112,7 +112,7 @@ pm_img::pm_img(int h, int w, int mv, int t)
 
 void pm_img::pm_write(const char *filename)
 {
-	printf("Outputting: %s\n", filename);
+	//printf("Outputting: %s\n", filename);
 	FILE *fp;
 	fp = fopen(filename,"wb");
 	//check(fp,"Unable to create %s",filename);

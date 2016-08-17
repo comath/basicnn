@@ -17,7 +17,7 @@ void delvec_data(vec_data *D);
 typedef struct errtracker {
 	int numerr;
 	arma::vec totvecerr;
-	int numVecs;
+	arma::vec intersection;
 	int * arrayindex;
 } errtracker;
 
@@ -26,13 +26,28 @@ typedef struct nnlayer {
 	arma::vec b;
 } nnlayer;
 
+typedef struct newHPInfo {
+	double offset;
+	arma::rowvec normVec;
+	int numerr;
+} newHPInfo;
+
+typedef struct indexDistance {
+	int *index;
+	double dist;
+} indexDistance;
+
 class nn {
 private:
 	int depth;
 	nnlayer *layers;
 	void initlayerofnn(int i,int indim, int outdim);
 	void smartaddnode1(vec_data *data, int func);
-	errtracker locateClosestHyperplanes(vec_data *data,int func, double errorthreshold);
+	newHPInfo locateNewHP(vec_data *data, int func, double errorThreshold);
+	arma::vec calculateSelectionVector();
+	indexDistance computeDistToHyperplanesIntersections(arma::vec v);
+	arma::vec hyperplaneIntersection(int i,int j);
+	double hyperplaneIntersectionDistance(int i, int j, arma::vec v);
 public:
 	nn(int inputdim, int width1, int width2, int outdim);
 	nn(int inputdim, int width1, int outdim);

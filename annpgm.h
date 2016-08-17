@@ -14,5 +14,6 @@ using namespace std;
 
 vec_data *get_vec_data_ppm(pm_img *img, int numdata);
 void write_nn_to_img(nn *thisnn, const char filename[], int height, int width, int func);
+void write_data_to_img(vec_data *data,const char filename[]);
 
 #endif

@@ -5,6 +5,7 @@
 #include <iomanip>
 #include <pthread.h>
 #include <sys/stat.h>
+#include <ctime>
 #include "ann.h"
 #include "pgmreader.h"
 #include "annpgm.h"
@@ -221,8 +222,8 @@ void animatetraining(int argc, char *argv[])
 
 void adaptivetraining(int argc, char *argv[])
 {
-	int generations = 1000;
-	int numdata = 1000;
+	int generations = 500;
+	int numdata = 3000;
 	int numnodes = 3;
 	double rate_start = 0.05;
 
@@ -236,12 +237,9 @@ void adaptivetraining(int argc, char *argv[])
 	nurnet->randfillnn(0.5);
 	vec_data *D = get_vec_data_ppm(img, numdata);
 	mkdir("imgfiles",0777);
-	char header[100];
-	sprintf(header, "imgfiles/train%05d.ppm",0);
-	write_nn_to_img(nurnet,header,500,500,0);
+	mkdir("imgfiles/sig",0777);
+	mkdir("imgfiles/hea",0777);
 	nurnet->animatedadaptivebackprop1(D, 0.05, -1, generations, 10, false);
-	sprintf(header, "imgfiles/train%05d.ppm",1);
-	write_nn_to_img(nurnet,header,500,500,0);
 	bool test = nurnet->save("test1.nn");
 	delvec_data(D);
 	delete nurnet;
@@ -251,17 +249,24 @@ void adaptivetraining(int argc, char *argv[])
 
 int main(int argc, char *argv[])
 {
+	
 	int i,j,k =0;
 	if(argc == 3 && argv[1][0] == '-' && argv[1][1] == 'i'){
 		animatetraining(argc, argv);
 		return 0;
 	}
 	if(argc == 3 && argv[1][0] == '-' && argv[1][1] == 'b'){
+		int start_s=clock();
 		geterrordata(argc, argv);
+		int stop_s=clock();
+		cout << "time: " << (stop_s-start_s)/double(CLOCKS_PER_SEC)*1000 << endl;
 		return 0;
 	}
 	if(argc == 3 && argv[1][0] == '-' && argv[1][1] == 'a'){
+		int start_s=clock();
 		adaptivetraining(argc, argv);
+		int stop_s=clock();
+		cout << "time: " << (stop_s-start_s)/double(CLOCKS_PER_SEC)*1000 << endl;
 		return 0;
 	}
 	if(argc == 3 && argv[1][0] == '-' && argv[1][1] == 'n'){

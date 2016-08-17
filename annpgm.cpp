@@ -116,3 +116,25 @@ void write_nn_to_img(nn *thisnn, const char filename[], int height, int width, i
 		printf("Not of a correct dimension\n");
 	}
 }
+
+void write_data_to_img(vec_data *data,const char filename[])
+{
+	pm_img img = pm_img(filename);
+	int height = img.getheight();
+	int width = img.getwidth();
+	int i =0;
+	int numdata = data->numdata;
+	int x,y =0;
+	for(i=0;i<numdata;i++){
+		y = ((data->data[i].coords(1)*height/10+(double)height/2));
+		x = ((data->data[i].coords(0)*width/10+(double)width/2));
+		if(img.gettype()==6) {
+			img.wr(x,y,127);
+			img.wg(x,y,127);
+			img.wb(x,y,127);
+		} else if(img.gettype()==5) {
+			img.wr(x,y,127);
+		}
+	}
+	img.pm_write(filename);
+}

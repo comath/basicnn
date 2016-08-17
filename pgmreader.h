@@ -12,7 +12,7 @@ private:
 	int type; 
 public:
 	pm_img(int height, int width, int maxval, int type);
-	pm_img(char *filename);
+	pm_img(const char *filename);
 	void pm_write(const char *filename);
 	~pm_img();
 	int gettype();
