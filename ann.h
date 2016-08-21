@@ -45,7 +45,7 @@ private:
 	void smartaddnode1(vec_data *data, int func);
 	newHPInfo locateNewHP(vec_data *data, int func, double errorThreshold);
 	arma::vec calculateSelectionVector();
-	indexDistance computeDistToHyperplanesIntersections(arma::vec v);
+	indexDistance * computeDistToHyperplanesIntersections(arma::vec v);
 	arma::vec hyperplaneIntersection(int i,int j);
 	double hyperplaneIntersectionDistance(int i, int j, arma::vec v);
 public:

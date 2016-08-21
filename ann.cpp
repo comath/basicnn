@@ -47,22 +47,24 @@ nn::nn(const char *filename){
 		int magicnum;
 		fp >> magicnum;
 		if(magicnum == 34){
-		if(fp.get() =='\n'){
-		fp >> depth;
-		if(fp.get() =='\n'){
-		printf(".");
-		int i =0;
-		bool At, bt;
-		layers = new nnlayer[depth];
-		for(i=0;i<depth;i++){ initlayerofnn(i,0,0);}
-		for(i=0;i<depth;i++){
-			printf(".");
-			At = layers[i].A.load(fp);
-			bt = layers[i].b.load(fp);
-			if(!(At) || !(bt)) { break; }
+			if(fp.get() =='\n'){
+				fp >> depth;
+				if(fp.get() =='\n'){
+					printf(".");
+					int i =0;
+					bool At, bt;
+					layers = new nnlayer[depth];
+					for(i=0;i<depth;i++){ initlayerofnn(i,0,0);}
+					for(i=0;i<depth;i++){
+						printf(".");
+						At = layers[i].A.load(fp);
+						bt = layers[i].b.load(fp);
+						if(!(At) || !(bt)) { break; }
+					}
+					printf("Load Successful\n");
+				}
+			}
 		}
-		printf("Load Successful\n");
-	}}}
 	}
 }
 
@@ -150,9 +152,6 @@ void nn::singlebackprop(vec_datum datum, double rate)
 {
 	vec nexterror;
 	vec error = (evalnn(datum.coords,0)- datum.value);
-	double outputj,outputk,curweight;
-	int outdim,indim =0;
-	int j,k=0;
 	int i = depth;
 	for(i=depth;i>0;i--){
 		mat curlayout = evalnn_layer(datum.coords,0,i);
@@ -286,7 +285,7 @@ int * minvals(vec v, int numvecs){
 			ret[0] = i;
 		}
 	}
-	if(ret[1]=-1){
+	if(ret[1]==-1){
 		x=1000000;
 		for(i=0;i<l;i++){
 			if(v(i)<x && i != ret[0]){
@@ -336,7 +335,7 @@ double nn::hyperplaneIntersectionDistance(int i, int j, vec v)
 }
 
 
-indexDistance nn::computeDistToHyperplanesIntersections(vec v)
+indexDistance * nn::computeDistToHyperplanesIntersections(vec v)
 {
 	int i,j =0;
 	int n = this->outdim(0);
@@ -354,10 +353,15 @@ indexDistance nn::computeDistToHyperplanesIntersections(vec v)
 			}
 		}
 	}
-	indexDistance ret;
-	ret.index = index;
-	ret.dist = smallestDist;
+	indexDistance *ret = new indexDistance;
+	ret->index = index;
+	ret->dist = smallestDist;
 	return ret;
+}
+
+void delIndexDistance(indexDistance *thisID){
+	delete[] thisID->index;
+	delete thisID;
 }
 
 
@@ -385,11 +389,12 @@ newHPInfo nn::locateNewHP(vec_data *data, int func, double errorThreshold)
 	for(i=0;i<numdata;i++){
 		double err = norm((data->data[i].value-this->evalnn(data->data[i].coords,func)));
 		if(err > errorThreshold){
-			indexDistance ID = computeDistToHyperplanesIntersections(data->data[i].coords);
-			intersection = errArray[ID.index[0]][ID.index[1]].intersection;
-			errArray[ID.index[0]][ID.index[1]].totvecerr += (data->data[i].coords);
-			errArray[ID.index[0]][ID.index[1]].numerr++;
+			indexDistance *ID = computeDistToHyperplanesIntersections(data->data[i].coords);
+			intersection = errArray[ID->index[0]][ID->index[1]].intersection;
+			errArray[ID->index[0]][ID->index[1]].totvecerr += (data->data[i].coords);
+			errArray[ID->index[0]][ID->index[1]].numerr++;
 			numerrors++;
+			delIndexDistance(ID);
 		}
 	}
 	//printf("Number of total errors: %d\n", numerrors);
@@ -469,7 +474,6 @@ void nn::smartaddnode1(vec_data *data,int func)
 	int i,j=0;
 	int numnodes = this->outdim(0);
 	int inputdim = this->indim();
-	int numdata = data->numdata;
 	if(numnodes==1){
 		rowvec v = randu<rowvec>(inputdim);
 		rowvec k = layers[0].A.row(0);
