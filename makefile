@@ -2,7 +2,7 @@
 # The defaults are for a Linux system and may need to be changed for other systems (eg. Mac OS X).
 
 
-CXX=g++
+CXX=g++ -std=c++11 -Wall
 CC = gcc
 
 #CXX=CC
@@ -59,10 +59,10 @@ pgmreader: pgmreader.cpp
 	$(CXX) $(CCFLAGS) -c pgmreader.cpp  -o pgmreader.o 
 
 ann: ann.cpp
-	$(CXX) $(CXXFLAGS)  -o $@  $<  $(LIB_FLAGS)
+	$(CXX) $(CXXFLAGS) pgmreader.cpp annpgm.cpp -o $@  $<  $(LIB_FLAGS)
 
 imagetest: imagetest.cpp pgmreader.o ann.o
-	$(CXX) $(CXXFLAGS) pgmreader.cpp ann.cpp -o $@ $<  $(LIB_FLAGS)
+	$(CXX) $(CXXFLAGS) pgmreader.cpp ann.cpp annpgm.cpp -o $@ $<  $(LIB_FLAGS) -lpthread -lm
 
 svmtonn: svmtonn.cpp 
 	$(CXX) $(CXXFLAGS)  -o $@  $<  $(LIB_FLAGS)

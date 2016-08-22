@@ -223,7 +223,7 @@ bool nn::addnode(int layernum, int nodenum, arma::rowvec v, double offset,arma::
 	int dim3start = this->outdim(layernum+1);
 	//mat Abackup = new mat(layers[layernum].A);
 	//vec bbackup = new vec(layers[layernum].b);
-	if(v.n_cols != this->indim(layernum)){ return false; }
+	if(v.n_cols != (unsigned int)this->indim(layernum)){ return false; }
 	layers[layernum].A.insert_rows(nodenum,v);
 	if(dim1start != this->indim(layernum) || dim2start+1 != this->outdim(layernum))
 	{
@@ -378,10 +378,6 @@ newHPInfo nn::locateNewHP(vec_data *data, int func, double errorThreshold)
 			errArray[i][j].numerr = 0;
 			errArray[i][j].totvecerr = zeros<vec>(inputdim);
 			errArray[i][j].intersection = this->hyperplaneIntersection(i,j);
-			int *indexes = new int[2];
-			indexes[0]=i;
-			indexes[1]=j;
-			errArray[i][j].arrayindex = indexes;
 		}
 	}
 	int numerrors =0;
@@ -398,7 +394,8 @@ newHPInfo nn::locateNewHP(vec_data *data, int func, double errorThreshold)
 		}
 	}
 	//printf("Number of total errors: %d\n", numerrors);
-	int errtrac1,errtrac2=-1;
+	int errtrac1=-1;
+	int errtrac2=-1;
 	int comparison = -1;
 	for(i=0;i<numnodes;i++){
 		for(j=0;j<i;j++){
@@ -471,7 +468,6 @@ void nn::smartaddnode1(vec_data *data,int func)
 	this->print();
 	printf("------------------------------------------------------------------------\n");
 	*/
-	int i,j=0;
 	int numnodes = this->outdim(0);
 	int inputdim = this->indim();
 	if(numnodes==1){
@@ -562,8 +558,8 @@ void nn::animatedadaptivebackprop1(vec_data *D, double rate, double objerr, int 
 	int i=0;
 	double inputrate = rate;
 	double curerr = this->calcerror(D,0);
-	double curerrorslope = 0;
-	int curnodes = this->outdim(0);
+	double curerrorslope = 0
+; 		int curnodes = this->outdim(0);
 	char header[100];
 	int lastHPChange = 0;
 	while(i<max_gen && curerr > objerr){

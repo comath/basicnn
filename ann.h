@@ -18,7 +18,6 @@ typedef struct errtracker {
 	int numerr;
 	arma::vec totvecerr;
 	arma::vec intersection;
-	int * arrayindex;
 } errtracker;
 
 typedef struct nnlayer {

@@ -19,7 +19,8 @@ struct vec_data *get_vec_data_ppm(pm_img *img, int numdata)
 	thisdata->numdata = numdata;
 	int height = img->getheight();
 	int width = img->getwidth();
-	int i,j = 0;
+	int i = 0;
+	int j = 0;
 	int x;
 	int y;
 
@@ -31,29 +32,23 @@ struct vec_data *get_vec_data_ppm(pm_img *img, int numdata)
 		x = dist_width(generator);
 		y = dist_height(generator);
 		//printf("x:%d,y:%d     i:%d,j:%d \n", x,y,i,j);
-		if(j > numdata)
-		double r,g,b;
+		//if(j > numdata){break;}
 		thisdata->data[i].coords = vec(2,fill::zeros);
 		thisdata->data[i].coords(1) = ((y-(double)height/2)/height)*10;
 		thisdata->data[i].coords(0) = ((x-(double)width/2)/width)*10;
 		thisdata->data[i].value = vec(1,fill::zeros);
-		if(img->gettype() == 6) {
-			double r = ((double)((unsigned char)img->r(x,y))/255);
-			double g = ((double)((unsigned char)img->g(x,y))/255);
-			double b = ((double)((unsigned char)img->b(x,y))/255);
-			
+		if(img->gettype() == 6) {			
 			if(true){
 				thisdata->data[i].value = vec(3,fill::zeros);
-				thisdata->data[i].value(0) = r;
-				thisdata->data[i].value(1) = g;
-				thisdata->data[i].value(2) = b;
+				thisdata->data[i].value(0) = ((double)((unsigned char)img->r(x,y))/255);
+				thisdata->data[i].value(1) = ((double)((unsigned char)img->g(x,y))/255);
+				thisdata->data[i].value(2) = ((double)((unsigned char)img->b(x,y))/255);
 				i++;
 			}
-		} else {			
-			double r = ((double)((unsigned char)img->r(x,y))/255);
+		} else {
 			if(true){
 				thisdata->data[i].value = vec(1,fill::zeros);
-				thisdata->data[i].value(0) = r;
+				thisdata->data[i].value(0) = ((double)((unsigned char)img->r(x,y))/255);
 				i++;
 			}
 		}

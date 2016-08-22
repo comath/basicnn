@@ -36,13 +36,17 @@ pm_img::pm_img(const char *filename)
 		printf("%c", nextch(imgfile));
 	}*/
 	int reader;
-	fscanf(imgfile,"%d", &reader);
+	int rc = fscanf(imgfile,"%d", &reader);
+	if(rc != 1){printf("File Read Failure\n");}
 	width = reader;
-	fscanf(imgfile,"%d", &reader);
+	rc = fscanf(imgfile,"%d", &reader);
 	height = reader;
-	fscanf(imgfile,"%d", &reader);
+	if(rc != 1){printf("File Read Failure\n");}
+	rc = fscanf(imgfile,"%d", &reader);
 	maxval = reader;
+	if(rc != 1){printf("File Read Failure\n");}
 	while(nextch(imgfile) != '\n');
+
 	/*while(!feof(imgfile)){
 		printf("%c", nextch(imgfile));
 	}*/
@@ -119,13 +123,13 @@ void pm_img::pm_write(const char *filename)
 	char magicnum[3] = {'P',(char)(type + 48),'\n'};
 	fwrite(magicnum,sizeof(char)*3,1,fp);
 	int rc = fprintf(fp, "%d",width);
-	//check(rc>0,"File write error");
+	if(rc == 0 ){printf("File Write Failure\n");}
 	fputc(' ',fp);
 	rc = fprintf(fp, "%d", height);
-	//check(rc>0,"File write error");
+	if(rc == 0 ){printf("File Write Failure\n");}
 	fputc('\n',fp);
 	rc = fprintf(fp, "%d", maxval);
-	//check(rc>0,"File write error");
+	if(rc == 0 ){printf("File Write Failure\n");}
 	fputc('\n',fp);
 
 	int i,j =0;
@@ -144,10 +148,7 @@ void pm_img::pm_write(const char *filename)
 			}
 		}
 	}
-
-	//fclose(fp);
-error:
-	if(fp) fclose(fp);
+	fclose(fp);
 }
 
 pm_img::~pm_img()

@@ -265,8 +265,8 @@ void animatetraining(int argc, char *argv[])
 
 void adaptivetraining(int argc, char *argv[])
 {
-	int generations = 500;
-	int numdata = 3000;
+	int generations = 200;
+	int numdata = 1000;
 	int numnodes = 3;
 
 	printf("Opening %s\n",argv[2]);
@@ -281,7 +281,7 @@ void adaptivetraining(int argc, char *argv[])
 	mkdir("imgfiles/sig",0777);
 	mkdir("imgfiles/hea",0777);
 	nurnet->animatedadaptivebackprop1(D, 0.05, -1, generations, 6, false);
-	bool test = nurnet->save("test1.nn");
+	nurnet->save("test1.nn");
 	delvec_data(D);
 	delete nurnet;
 	delete img;
