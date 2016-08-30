@@ -53,7 +53,7 @@ OPT = -O2
 
 CXXFLAGS = $(DEBUG) $(FINAL) $(OPT) $(EXTRA_OPT)
 
-all: svmtonn ann
+all: imagetest ann
 
 pgmreader: pgmreader.cpp
 	$(CXX) $(CCFLAGS) -c pgmreader.cpp  -o pgmreader.o 
@@ -61,8 +61,11 @@ pgmreader: pgmreader.cpp
 ann: ann.cpp
 	$(CXX) $(CXXFLAGS) pgmreader.cpp annpgm.cpp -o $@  $<  $(LIB_FLAGS)
 
-imagetest: imagetest.cpp pgmreader.o ann.o
-	$(CXX) $(CXXFLAGS) pgmreader.cpp ann.cpp annpgm.cpp -o $@ $<  $(LIB_FLAGS) -lpthread -lm
+nnanalyzer: nnanalyzer.cpp
+	$(CXX) $(CXXFLAGS) ann.cpp -o $@  $<  $(LIB_FLAGS)
+
+imagetest: imagetest.cpp pgmreader.o ann.o nnanalyzer.o
+	$(CXX) $(CXXFLAGS) pgmreader.cpp ann.cpp annpgm.cpp nnanalyzer.cpp -o $@ $<  $(LIB_FLAGS) -lpthread -lm
 
 svmtonn: svmtonn.cpp 
 	$(CXX) $(CXXFLAGS)  -o $@  $<  $(LIB_FLAGS)

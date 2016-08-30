@@ -53,7 +53,8 @@ void *geterrordata_thread(void *thread_args)
 	bool adaptive = myargs->adaptive;
 	printf("Opened thread %d covering networks %d to %d \n",tid,begin,end-1);
 
-	int i,j =0;
+	int i =0;
+	int j =0;
 	char header[100];
 
 	double saverages[NUMGEN];
@@ -102,19 +103,22 @@ void *geterrordata_thread(void *thread_args)
 					}
 					nurnet->save(header);
 				
+					
+					double ** errors;
 					if(adaptive){
-						double ** errors = nurnet->erroradaptivebackprop1(D, 0.05, -1, NUMGEN, numnodes, false);
-						for(j=0;j<NUMGEN;j++){
-							saverages[j] = saverages[j] + errors[0][j];
-							haverages[j] = haverages[j] + errors[1][j];
-						}
-					} else {
-						for(j=0;j<NUMGEN;j++){
-							nurnet->epochbackprop(D,0.05);
-							saverages[j] = saverages[j] + nurnet->calcerror(D,0);
-							haverages[j] = haverages[j] + nurnet->calcerror(D,1);
-						}
+						errors = nurnet->erroradaptivebackprop1(D, 0.05, -1, NUMGEN, numnodes, false);
+					} else { 
+						errors = nurnet->trainingbackprop(D, 0.05, -1, NUMGEN, false);
 					}
+					for(j=0;j<NUMGEN;j++){
+						saverages[j] = saverages[j] + errors[0][j];
+						haverages[j] = haverages[j] + errors[1][j];
+					}
+					delete[] errors[0];
+					delete[] errors[1];
+					delete[] errors;
+
+
 					if(adaptive){
 						sprintf(header, "imgfiles/numnodes%03d/netpost/net%03ddata%03dnodespostAdaptive.nn",numnodes,i,numDataSets);
 					} else {

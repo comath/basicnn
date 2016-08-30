@@ -41,7 +41,7 @@ private:
 	int depth;
 	nnlayer *layers;
 	void initlayerofnn(int i,int indim, int outdim);
-	void smartaddnode1(vec_data *data, int func);
+	
 	newHPInfo locateNewHP(vec_data *data, int func, double errorThreshold);
 	arma::vec calculateSelectionVector();
 	indexDistance * computeDistToHyperplanesIntersections(arma::vec v);
@@ -61,8 +61,9 @@ public:
 	arma::vec evalnn_layer( arma::vec input, int func, int layernum);
 	void singlebackprop(vec_datum datum, double rate);
 	void epochbackprop(vec_data *data, double rate);
-	void trainingbackprop(vec_data *data, double rate, double objerr, int max_gen, bool ratedecay);
+	double ** trainingbackprop(vec_data *data, double rate, double objerr, int max_gen, bool ratedecay);
 	double calcerror(vec_data *data, int func);
+	double calcerror(vec_datum datum, int func);
 	int outdim();
 	int indim();
 	int outdim(int i); // For the in and out of a layer
@@ -72,11 +73,16 @@ public:
 	v is the plane (the weights of the edges from the input nodes), 
 	w is the weights of the new edges to the second hidden layer
 	*/
-	double erravgslope(vec_data *data, int func);
 	bool addnode(int layernum, int nodenum, arma::rowvec v, double off,arma::vec w); 
+
+	void smartaddnode1(vec_data *data, int func);
+	
+	double erravgslope(vec_data *data, int func);
 	void adaptivebackprop1(vec_data *D, double rate, double objerr, int max_gen, int max_nodes, bool ratedecay);
 	void animatedadaptivebackprop1(vec_data *D, double rate, double objerr, int max_gen, int max_nodes, bool ratedecay);
 	double ** erroradaptivebackprop1(vec_data *D, double rate, double objerr, int max_gen, int max_nodes, bool ratedecay);
+
+
 };
 
 

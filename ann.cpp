@@ -173,8 +173,11 @@ void nn::epochbackprop(vec_data *D, double rate)
 	}	
 }
 
-void nn::trainingbackprop(vec_data *D, double rate, double objerr, int max_gen, bool ratedecay)
+double ** nn::trainingbackprop(vec_data *D, double rate, double objerr, int max_gen, bool ratedecay)
 {
+	double **returnerror = new double*[2];
+	returnerror[0] = new double[max_gen];
+	returnerror[1] = new double[max_gen];
 	int i=0;
 	double inputrate = rate;
 	double curerr = this->calcerror(D,0);
@@ -182,24 +185,29 @@ void nn::trainingbackprop(vec_data *D, double rate, double objerr, int max_gen, 
 		if(ratedecay){inputrate = rate*((max_gen-(double)i)/max_gen);} 
 		this->epochbackprop(D,inputrate);
 		curerr = this->calcerror(D,0);
+		returnerror[0][i] = curerr;
+		returnerror[1][i] = this->calcerror(D,1);
 		i++;
 	}
+	return returnerror;
+}
+
+double nn::calcerror(vec_datum datum, int func){
+	double precomputeerror = norm((this->evalnn(datum.coords,func))-(datum.value));
+	return (precomputeerror*precomputeerror);
 }
 
 double nn::calcerror(vec_data *D, int func)
 {
 	int i =0;
 	int numdata = D->numdata;
-	vec nnvalue;
-	double precomputeerror =0;
 	double curerr = 0;
 	for(i=0;i<numdata;i++){
-		nnvalue = this->evalnn(D->data[i].coords,func);
-		precomputeerror = norm(nnvalue-(D->data[i].value));
-		curerr += (precomputeerror*precomputeerror);
+		curerr += this->calcerror(D->data[i],func);
 	}
 	return curerr/numdata;
 }
+
 
 int nn::outdim() {	return layers[depth-1].A.n_rows; }
 int nn::indim() {	return layers[0].A.n_cols; }
@@ -500,7 +508,7 @@ void nn::smartaddnode1(vec_data *data,int func)
 }
 
 #ifndef SLOPETHRESHOLD
-#define SLOPETHRESHOLD 0.0001
+#define SLOPETHRESHOLD 0.01
 #endif
 
 void nn::adaptivebackprop1(vec_data *D, double rate, double objerr, int max_gen, int max_nodes, bool ratedecay)
@@ -516,12 +524,14 @@ void nn::adaptivebackprop1(vec_data *D, double rate, double objerr, int max_gen,
 		this->epochbackprop(D,inputrate);
 		curerr = this->calcerror(D,0);
 		curerrorslope = this->erravgslope(D,0);
-		if(-curerrorslope < SLOPETHRESHOLD && curerrorslope < 0 && curnodes < max_nodes && i-lastHPChange>50){
+		if(curerrorslope > -SLOPETHRESHOLD*inputrate && curerrorslope < SLOPETHRESHOLD*inputrate 
+			&& curnodes < max_nodes && i-lastHPChange>50){
 			this->smartaddnode1(D,1);
 			lastHPChange = i;
 			curnodes = this->outdim(0);	
 		}
 		i++;
+		if(ratedecay){inputrate = rate*((double)max_gen - i)/max_gen;}
 	}
 }
 
@@ -543,12 +553,14 @@ double ** nn::erroradaptivebackprop1(vec_data *D, double rate, double objerr, in
 		returnerror[0][i] = curerr;
 		returnerror[1][i] = this->calcerror(D,1);
 		curerrorslope = this->erravgslope(D,0);
-		if(-curerrorslope < SLOPETHRESHOLD && curerrorslope < 0 && curnodes < max_nodes && i-lastHPChange>50){
+		if(curerrorslope > -SLOPETHRESHOLD*inputrate && curerrorslope < SLOPETHRESHOLD*inputrate 
+			&& curnodes < max_nodes && i-lastHPChange>50){
 			this->smartaddnode1(D,1);
 			lastHPChange = i;
 			curnodes = this->outdim(0);	
 		}
 		i++;
+		if(ratedecay){inputrate = rate*((double)max_gen - i)/max_gen;}
 	}
 	return returnerror;
 }
