@@ -11,6 +11,6 @@ typedef struct hp {
 } hp;
 
 
-double ** adaptivebackprop1(nn nurnet, vec_data *D, double rate, double objerr, int max_gen, int max_nodes, bool ratedecay);
+double ** adaptivebackprop(nn *nurnet, vec_data *D, double rate, double objerr, int max_gen, int max_nodes, bool ratedecay);
 
 #endif

@@ -9,6 +9,7 @@
 #include "ann.h"
 #include "pgmreader.h"
 #include "annpgm.h"
+#include "nnanalyzer.h"
 
 #define Malloc(type,n) (type *)malloc((n)*sizeof(type))
 
@@ -284,7 +285,7 @@ void adaptivetraining(int argc, char *argv[])
 	mkdir("imgfiles",0777);
 	mkdir("imgfiles/sig",0777);
 	mkdir("imgfiles/hea",0777);
-	nurnet->animatedadaptivebackprop1(D, 0.05, -1, generations, 6, false);
+	adaptivebackprop(nurnet,D, 0.05, -1, generations, 6, false);
 	nurnet->save("test1.nn");
 	delvec_data(D);
 	delete nurnet;

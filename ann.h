@@ -73,7 +73,8 @@ public:
 	v is the plane (the weights of the edges from the input nodes), 
 	w is the weights of the new edges to the second hidden layer
 	*/
-	bool addnode(int layernum, int nodenum, arma::rowvec v, double off,arma::vec w); 
+	bool addnode(int layernum, int nodenum, arma::rowvec v, double off,arma::vec w);
+	void addnode(arma::rowvec v, double offset, nnlayer selectionLayer);
 
 	void smartaddnode1(vec_data *data, int func);
 	
