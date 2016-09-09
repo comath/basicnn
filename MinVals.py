@@ -65,9 +65,7 @@ heavyAD = heavyAD.T
 labels = heavyAD.columns
 
 
-print len(heavyAD['3 Nodes'].values[1:501])
-print heavyAD['3 Nodes'].values[0]
-print len(numgen)
+
 
 for rank, column in enumerate(labels):    
     # Plot each line separately with its own color, using the Tableau 20    

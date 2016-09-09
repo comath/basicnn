@@ -249,7 +249,8 @@ bool nn::addnode(int layernum, int nodenum, arma::rowvec v, double offset,arma::
 
 void nn::addnode(arma::rowvec v, double offset ,nnlayer selectionLayer){
 	layers[0].A.insert_rows(0,v);
-	layers[0].b.insert_rows(0,offset);
+	mat offsetv = {offset};
+	layers[0].b.insert_rows(0,offsetv);
 	layers[1] = selectionLayer;
 }
 
