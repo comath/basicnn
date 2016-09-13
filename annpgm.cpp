@@ -1,16 +1,21 @@
 #include <iostream>
 #include <random>
-#include <math.h>
+#include <cmath>
 #include <iomanip>
 #include <pthread.h>
 #include <sys/stat.h>
+
+#include <armadillo>
 #include "ann.h"
 #include "pgmreader.h"
 #include "annpgm.h"
+#include "nnanalyzer.h"
 
 
 using namespace arma;
 using namespace std;
+
+
 
 struct vec_data *get_vec_data_ppm(pm_img *img, int numdata)
 {
@@ -57,8 +62,6 @@ struct vec_data *get_vec_data_ppm(pm_img *img, int numdata)
 	}
 	return thisdata;
 }
-
-
 
 void write_nn_to_img(nn *thisnn, const char filename[], int height, int width, int func)
 {
@@ -112,6 +115,101 @@ void write_nn_to_img(nn *thisnn, const char filename[], int height, int width, i
 	}
 }
 
+
+void write_nn_layer1_to_img(nn *thisnn, const char filename[], int height, int width, int func)
+{
+	int i=0;
+	int j=0;
+	int k=0;
+	vec input = vec(2,fill::zeros);
+	
+	vec value;
+	pm_img *img = new pm_img(height,width,255,6);
+	for(i=0;i<height;i++){
+		for(j=0;j<width;j++){
+			input(0) = ((i-(double)height/2)/height)*10;
+			input(1) = ((j-(double)width/2)/width)*10;
+			value = thisnn->evalnn_layer(input, func, 1);
+			int n = value.n_rows;
+			unsigned char red = 0;
+			unsigned char blue = 0;
+			unsigned char green = 0;
+			for(k =0;k<n;++k){
+				if(k % 3 == 0){ red+= value(k)*256/(pow(2,k/3+1)); }
+				if(k % 3 == 2){ blue+= value(k)*256/(pow(2,k/3+1)); }
+				if(k % 3 == 1){ green+= value(k)*256/(pow(2,k/3+1)); }
+			}
+			img->wr(i,j,red);
+			img->wg(i,j,green);
+			img->wb(i,j,blue);
+		}
+	}
+	img->pm_write(filename);
+	delete img;
+}
+
+void write_nn_regions_to_img(nn *thisnn, const char filename[], int height, int width, int func)
+{
+	int i=0;
+	int j=0;
+	int k=0;
+	vec input = vec(2,fill::zeros);
+	std::vector<int> value;
+	pm_img *img = new pm_img(height,width,255,6);
+	for(i=0;i<height;i++){
+		for(j=0;j<width;j++){
+			input(0) = ((i-(double)height/2)/height)*10;
+			input(1) = ((j-(double)width/2)/width)*10;
+			value = getRegionSig(input, thisnn->getmat(0), thisnn->getoff(0));
+			int n = value.size();
+			unsigned char red = 0;
+			unsigned char blue = 0;
+			unsigned char green = 0;
+			for(k =0;k<n;++k){
+				if(k % 3 == 0){ red+= value[k]*256/(pow(2,k/3+1)); }
+				if(k % 3 == 2){ blue+= value[k]*256/(pow(2,k/3+1)); }
+				if(k % 3 == 1){ green+= value[k]*256/(pow(2,k/3+1)); }
+			}
+			img->wr(i,j,red);
+			img->wg(i,j,green);
+			img->wb(i,j,blue);
+		}
+	}
+	img->pm_write(filename);
+	delete img;
+}
+
+void write_nn_inter_to_img(nn *thisnn, const char filename[], int height, int width, int func)
+{
+	int i=0;
+	int j=0;
+	int k=0;
+	vec input = vec(2,fill::zeros);
+	std::vector<int> value;
+	pm_img *img = new pm_img(height,width,255,6);
+	for(i=0;i<height;i++){
+		for(j=0;j<width;j++){
+			input(0) = ((i-(double)height/2)/height)*10;
+			input(1) = ((j-(double)width/2)/width)*10;
+			value = getInterSig(input, thisnn->getmat(0), thisnn->getoff(0));
+			int n = value.size();
+			unsigned char red = 0;
+			unsigned char blue = 0;
+			unsigned char green = 0;
+			for(k =0;k<n;++k){
+				if(k % 3 == 0){ red+= value[k]*256/(pow(2,k/3+1)); }
+				if(k % 3 == 2){ blue+= value[k]*256/(pow(2,k/3+1)); }
+				if(k % 3 == 1){ green+= value[k]*256/(pow(2,k/3+1)); }
+			}
+			img->wr(i,j,red);
+			img->wg(i,j,green);
+			img->wb(i,j,blue);
+		}
+	}
+	img->pm_write(filename);
+	delete img;
+}
+
 void write_data_to_img(vec_data *data,const char filename[])
 {
 	pm_img img = pm_img(filename);
@@ -124,11 +222,11 @@ void write_data_to_img(vec_data *data,const char filename[])
 		y = ((data->data[i].coords(1)*height/10+(double)height/2));
 		x = ((data->data[i].coords(0)*width/10+(double)width/2));
 		if(img.gettype()==6) {
-			img.wr(x,y,127);
-			img.wg(x,y,127);
-			img.wb(x,y,127);
+			img.wr(x,y,(unsigned char)(floor((data->data[i].value(0))*255)));
+			img.wg(x,y,(unsigned char)(floor((data->data[i].value(0))*255)));
+			img.wb(x,y,(unsigned char)(floor((data->data[i].value(0))*255)));
 		} else if(img.gettype()==5) {
-			img.wr(x,y,127);
+			img.wr(x,y,(unsigned char)(floor((data->data[i].value(0))*255)));
 		}
 	}
 	img.pm_write(filename);

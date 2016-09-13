@@ -20,10 +20,8 @@ using namespace arma;
 #endif
 
 #ifndef SCALEDTUBETHRESHOLD
-#define SCALEDTUBETHRESHOLD 3
+#define SCALEDTUBETHRESHOLD 2
 #endif
-
-
 
 
 
@@ -42,7 +40,7 @@ vec computeDistToHPS(mat A,vec b, vec v){
 		scaling = norm(A.row(i));
 		curvec = A.row(i)/scaling;
 		normcurvec = b(i)*curvec/scaling;
-		retvec(i) = abs(dot((v.t()-normcurvec),curvec));
+		retvec(i) = abs(dot((normcurvec+v.t()),curvec));
 	}
 	return retvec;
 }
@@ -50,28 +48,31 @@ vec computeDistToHPS(mat A,vec b, vec v){
 std::vector<int> getInterSig(vec v, mat A, vec b)
 {
 	vec dist = computeDistToHPS(A,b,v);
+
 	uvec indsort = sort_index(dist,"accend");
-	unsigned j = 0;
-	double minval = dist(indsort(j));
+	unsigned j = 1;
 	unsigned n = dist.n_rows;
+	std::vector<int> sig (n,0);
+
 	//cout << "-----------------------------------------------------" << endl;
 	//cout << "Distances to Local HPs: " << endl << dist << endl;
-	if(minval < TUBETHRESHOLD){
-		while(j < n && dist(indsort(j))<SCALEDTUBETHRESHOLD*TUBETHRESHOLD){
-			j++;
-		}
-	} else {
-		dist = dist/minval;
-		for(unsigned k = 0; k<n; ++k){
-			//cout << "Looking at distance " << indsort(k) << " : " << dist(indsort(k)) <<endl;
-			if(dist(indsort(k))<SCALEDTUBETHRESHOLD)
-				j++;
-		}
-	}
-	std::vector<int> sig (n,0);
-	if(j == b.n_rows) {
+	
+	double minval = dist(indsort(j));
+	dist = dist/minval;
+	if(var(dist) < 0.2){
 		return sig;
 	}
+	for(unsigned k = 0; k<n-2; ++k){
+		//cout << "Looking at distance " << indsort(k) << " : " << dist(indsort(k)) <<endl;
+		if(dist(indsort(k)) < SCALEDTUBETHRESHOLD && abs(dist(indsort(k+1))-dist(indsort(k+2)))>SCALEDTUBETHRESHOLD){
+			j++;
+		}
+	}
+	
+	
+	if(j > v.n_rows)
+		j = v.n_rows;
+	
 	for (unsigned i = 0; i < j; ++i)
 	{
 		sig[indsort(i)] = 1;
@@ -525,7 +526,7 @@ nnlayer getSelectionVec(nn *nurnet, nnmap *nurnetMap, locSig sig)
 			}
 			newSelectionWeight(i) = 0.8*(regionValue + curSelectorOff);
 			
-			if(regionValue < -curSelectorOff){
+			if(regionValue > -curSelectorOff){
 				curSelectorOff += newSelectionWeight(i);
 				newSelectionWeight(i) = -newSelectionWeight(i);
 			}
@@ -555,7 +556,7 @@ void smartaddnode(nn *nurnet, vec_data *D)
 	vec normvec = getNormVec(nurnet,nurnetMap,maxsig);
 	cout << "NormVec: "<< endl << normvec << endl;
 	cout << "ErrLoc: "<< endl << errlocation << endl;
-	double offset = dot(normvec,errlocation);
+	double offset = -dot(normvec,errlocation);
 	//This should be combined with the above to make sure the normal vector matches the shape of the error area.
 	// If it's a corner of dimension n and there is a HP boundary over which it does not change then its's a corner of dim n-1
 	nnlayer newSecondLayer = getSelectionVec(nurnet,nurnetMap, maxsig);
@@ -584,12 +585,20 @@ double ** adaptivebackprop(nn *nurnet, vec_data *D, double rate, double objerr, 
 	while(i<max_gen && curerr > objerr){
 
 		char header[100];
-		sprintf(header, "imgfiles/sig/train%05d.ppm",i);
+		sprintf(header, "imgfiles/hea/%05dsig.ppm",i);
 		write_nn_to_img(nurnet,header,500,500,0);
 		write_data_to_img(D,header);
-		sprintf(header, "imgfiles/hea/train%05d.ppm",i);
+		sprintf(header, "imgfiles/hea/%05dheav.ppm",i);
 		write_nn_to_img(nurnet,header,500,500,1);
 		write_data_to_img(D,header);
+		sprintf(header, "imgfiles/hea/%05dregions.ppm",i);
+		write_nn_regions_to_img(nurnet,header,500,500,1);
+		write_data_to_img(D,header);
+		sprintf(header, "imgfiles/hea/%05dintersections.ppm",i);
+		write_nn_inter_to_img(nurnet,header,500,500,1);
+		write_data_to_img(D,header);
+		sprintf(header, "imgfiles/hea/%05dneuralnetwork.nn",i);
+		nurnet->save(header);
 		printf("Error slope: %f Num Nodes: %d Threshold: %f Current gen:%d\n", curerrorslope, curnodes, -SLOPETHRESHOLD*inputrate,i);
 		
 		if(ratedecay){inputrate = rate*((max_gen-(double)i)/max_gen);} 
@@ -600,7 +609,7 @@ double ** adaptivebackprop(nn *nurnet, vec_data *D, double rate, double objerr, 
 		curerrorslope = nurnet->erravgslope(D,0);
 		
 		if(curerrorslope > -SLOPETHRESHOLD*inputrate && curerrorslope < SLOPETHRESHOLD*inputrate 
-			&& curnodes < max_nodes && i-lastHPChange>30){
+			&& curnodes < max_nodes && i-lastHPChange>60){
 
 			printf("Inserting hyperplane. Error slope is %f \n",curerrorslope);
 

@@ -270,8 +270,8 @@ void animatetraining(int argc, char *argv[])
 
 void adaptivetraining(int argc, char *argv[])
 {
-	int generations = 200;
-	int numdata = 1000;
+	int generations = 500;
+	int numdata = 3000;
 	int numnodes = 3;
 
 	printf("Opening %s\n",argv[2]);
