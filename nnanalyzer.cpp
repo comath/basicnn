@@ -24,7 +24,6 @@ using namespace arma;
 #endif
 
 
-
 double disttohp(hp p, vec v){ // HP should be normalized.
 	return dot(v - p.b*p.v,p.v);
 }
@@ -133,17 +132,22 @@ typedef struct locInfo {
 		totvec+= v;
 		numvec++;
 	}
+	int getNumErr() {return numerrvec;}
 	vec getTotAvg()	{ return totvec/numvec;	}
-	vec getErrAvg()	{ return toterrvec/numerrvec; }
+	vec getErrAvg()	{
+		cout << toterrvec << endl;
+		cout << numerrvec << endl;
+		return toterrvec/numerrvec; 
+	}
 	vec totvec;
 	unsigned numvec;
 	vec toterrvec;
 	unsigned numerrvec;
 } locInfo;
 
-void printsig(std::vector<int> sig,int n)
+void printsig(std::vector<int> sig)
 {
-	for (int i = 0; i < n; ++i)
+	for (unsigned i = 0; i < sig.size(); ++i)
 	{
 		cout << sig[i];
 	}
@@ -164,7 +168,9 @@ private:
 	int dimension;
 public:
 	nnmap(nn *nurnet, vec_data *D){ 
-		printf("Creating the NN map\n");
+		#ifdef DEBUG	
+			printf("Creating the NN map\n");
+		#endif
 		int numdata = D->numdata;
 		mat A = nurnet->getmat(0);
 		vec b = nurnet->getoff(0);
@@ -290,7 +296,7 @@ public:
 		if(reg.count(sig) == 0){
 			return 0;
 		} else {
-			return reg.at(sig).numvec; 
+			return reg.at(sig).numerrvec; 
 		}
 	}
 	vec getIntersectionAvgErrVec(const vector<int> sig)
@@ -306,7 +312,7 @@ public:
 		if(inter.count(sig) == 0){
 			return 0;
 		} else {
-			return inter.at(sig).numvec; 
+			return inter.at(sig).numerrvec; 
 		}
 	}
 	vec getRegInterAvgErrVec(const locSig sig)
@@ -323,13 +329,15 @@ public:
 		if(regInter[sig.interSig].count(sig.regionSig) == 0){
 			return 0;
 		} else {
-			return regInter[sig.interSig].at(sig.regionSig).numvec; 
+			return regInter[sig.interSig].at(sig.regionSig).numerrvec; 
 		}
 	}
 	//--------------------------Returning useful info section-------------
-	locSig getMaxErrRegInter()
+	locSig getMaxErrRegInter(mat A, vec b)
 	{
-		printf("Deterimining the location with maximum error.\n");
+		#ifdef DEBUG
+			printf("Deterimining the location with maximum error.\n");
+		#endif
 		std::vector<int> interSigMaxErr ;
 		std::vector<int> regionSigMaxErr;
 		unsigned maxNumErr = 0;
@@ -341,42 +349,141 @@ public:
   			}
   			if(weight > dimension)
   				weight=dimension;
+
+  			locSig oddLocSig = getOddRegion(firstit.first,A,b);
+
   			for (auto& secit: firstit.second){
-  				if(sqrt(weight)*secit.second.numerrvec > maxNumErr){
-    				interSigMaxErr = firstit.first;
-    				regionSigMaxErr = secit.first;
-    				maxNumErr = sqrt(weight)*secit.second.numerrvec;
-  				}
+  				if(secit.first == oddLocSig.regionSig){
+	  				if(2*sqrt(weight)*secit.second.numerrvec > maxNumErr){
+	    				interSigMaxErr = firstit.first;
+	    				regionSigMaxErr = secit.first;
+	    				maxNumErr = 2*sqrt(weight)*secit.second.numerrvec;
+	  				}
+	  			} else {
+	  				if(sqrt(weight)*secit.second.numerrvec > maxNumErr){
+	    				interSigMaxErr = firstit.first;
+	    				regionSigMaxErr = secit.first;
+	    				maxNumErr = sqrt(weight)*secit.second.numerrvec;
+	  				}
+	  			}
   			}
   		}
-  		printf("The region with maximum error is : \n");
-  		printsig(regionSigMaxErr, numHPs);
-  		printf("near intersection:\n");
-  		printsig(interSigMaxErr, numHPs);
+  		#ifdef DEBUG
+	  		printf("The region with maximum error is : \n");
+	  		printsig(regionSigMaxErr);
+	  		printf("near intersection:\n");
+	  		printsig(interSigMaxErr);
+  		#endif
   		locSig sigMaxErr = {.regionSig = regionSigMaxErr, .interSig = interSigMaxErr};
   		return sigMaxErr;
 	}
-	std::vector<vec> getLocalRegions(const locSig sig)
+	std::vector<int> getMaxErrInter()
 	{
-		std::vector<vec> localRegions;
-  		for (std::map<std::vector<int>,locInfo>::iterator firstit=regInter[sig.interSig].begin(); firstit!=regInter[sig.interSig].end(); ++firstit){
-  			vec cursig =  zeros<vec>(numHPs);
-  			std::vector<int> regionSig = firstit->first;
-  			for (int i = 0; i < numHPs; ++i){
-  				cursig(i) = regionSig[i];
+		#ifdef DEBUG
+			printf("Deterimining the location with maximum error.\n");
+		#endif
+		std::vector<int> interSigMaxErr;
+		int maxNumErr = -1;
+  		for (auto& interit: inter){
+  			int weight =0;
+  			for(int i = 0; i < numHPs; ++i){
+  				if(interit.first[i] == 1)
+  					weight++;
   			}
-  			localRegions.push_back(cursig);
+  			if(weight > dimension)
+  				weight=dimension;
+  			if(weight > 1){
+	  			if(sqrt(weight)*interit.second.numerrvec > maxNumErr){
+	    			interSigMaxErr = interit.first;
+	    			maxNumErr = sqrt(weight)*interit.second.numerrvec;
+	  			}
+	  		}
+  		}
+  		#ifdef DEBUG
+  			printf("The intersection with the most error is:\n");
+  			printsig(interSigMaxErr);
+  		#endif
+  		return interSigMaxErr;
+	}
+	std::vector<std::vector<int>> getLocalRegions(const std::vector<int> sig)
+	{
+		std::vector<std::vector<int>> localRegions;
+  		for (auto& regIt: regInter[sig]){
+  			localRegions.push_back(regIt.first);
   		}
   		return localRegions;
 	}
+
+	vec getAvgRegionVal(std::vector<int> interSig, mat A, vec b)
+	{
+		#ifdef DEBUG
+			cout << "Matrix: " << endl << A << endl;
+			cout << "Offset: " << endl << b << endl;
+		#endif
+		vec avgRegionVal = zeros<vec>(A.n_rows);
+		int numRegions =0;
+  		for (auto& regIt: regInter[interSig]){
+  			vec curSig =  zeros<vec>(numHPs);
+  			std::vector<int> regionSig = regIt.first;
+  			for (int i = 0; i < numHPs; ++i){
+  				curSig(i) = regionSig[i];
+  			}
+  			#ifdef DEBUG
+  				cout << "Current Region: " << endl << curSig << endl;	
+  			#endif 
+  			vec result = A*curSig + b;
+  			result.for_each( [](mat::elem_type& val) { if(val>0){val=1;} else{val=0;} } );
+  			#ifdef DEBUG
+  				cout << "Value: " << endl << result << endl;
+  			#endif
+  			avgRegionVal += result;
+  			numRegions++;
+  		}
+  		avgRegionVal = avgRegionVal/numRegions;
+  		cout << "Average Region Val: " << endl << avgRegionVal << endl;
+  		return avgRegionVal;
+	}
+
+	locSig getOddRegion(std::vector<int> interSig, mat A, vec b)
+	{	
+		#ifdef DEBUG
+			cout << "Matrix: " << endl << A << endl;
+			cout << "Offset: " << endl << b << endl;
+		#endif
+		vec avgRegionVal = getAvgRegionVal(interSig,A,b);
+
+  		double maxDist =-1;
+  		std::vector<int> regSig;
+  		for (auto& regIt: regInter[interSig]){
+  			vec curSig =  zeros<vec>(numHPs);
+  			std::vector<int> regionSig = regIt.first;
+  			for (int i = 0; i < numHPs; ++i){
+  				curSig(i) = regionSig[i];
+  			}
+  			vec result = A*curSig + b;
+  			result.for_each( [](mat::elem_type& val) { if(val>0){val=1;} else{val=0;} } );
+  			double curDist = norm(result-avgRegionVal);
+  			if(maxDist < curDist){
+  				regSig = regionSig;
+  				maxDist = curDist;
+  			}
+  		}
+  		#ifdef DEBUG
+  			cout << "Chosen Region: " << endl;
+  			printsig(regSig);
+  		#endif
+  		locSig sigMaxErr = {.regionSig = regSig, .interSig = interSig};
+  		return sigMaxErr;
+	}
+
 	void print()
 	{
 		for (auto& firstit: regInter){
   			for (auto& secit: firstit.second){
 				cout << "Intersection Signature:";
-  				printsig(firstit.first,numHPs);
+  				printsig(firstit.first);
   				cout << "Region Signature:";
-				printsig(secit.first,numHPs);
+				printsig(secit.first);
     			secit.second.print();  				
   			}
   		}
@@ -385,13 +492,17 @@ public:
 
 vec getNormVec(nn *nurnet, nnmap *locInfo, locSig sig)
 {
-	printf("Getting Norm Vec\n");
+	#ifdef DEBUG
+		printf("Getting Norm Vec\n");
+	#endif
 	mat A = nurnet->getmat(0);
 	int m = A.n_cols;
 	vec normvec = zeros<vec>(m);
 	int n = A.n_rows;
 	vec regionRep = locInfo->getRegInterAvgVec(sig);
-	cout << "RegionRep: "<< endl << regionRep << endl;
+	#ifdef DEBUG	
+		cout << "RegionRep: "<< endl << regionRep << endl;
+	#endif
 	int numLocalRegions =0;
 	for (int i = 0; i < n; ++i) {
 		if(sig.interSig[i] == 1)
@@ -399,7 +510,9 @@ vec getNormVec(nn *nurnet, nnmap *locInfo, locSig sig)
 	}
 	if(numLocalRegions == 1){
 		for(int i =0; i<n; ++i){
-			cout << "InterSig["<< i <<"]: "<< sig.interSig[i] << endl;
+			#ifdef DEBUG
+				cout << "InterSig["<< i <<"]: "<< sig.interSig[i] << endl;
+			#endif
 			if(sig.interSig[i] == 1){
 				vec v = A.row(i).t();
 				normvec = normvec.randn();
@@ -416,7 +529,9 @@ vec getNormVec(nn *nurnet, nnmap *locInfo, locSig sig)
 	}
 
 	for(int i =0; i<n; ++i){
-		cout << "InterSig["<< i <<"]: "<< sig.interSig[i] << endl;
+		#ifdef DEBUG
+			cout << "InterSig["<< i <<"]: "<< sig.interSig[i] << endl;
+		#endif
 		vec v = A.row(i).t();
 		v = v/norm(v);
 		if(sig.interSig[i] == 1){
@@ -426,9 +541,11 @@ vec getNormVec(nn *nurnet, nnmap *locInfo, locSig sig)
 				normvec -= v;
 		}
 	}
-	for(int i =0; i<n; ++i){
-		cout << "RegionSig[" << i << "]: "<< sig.regionSig[i] << endl;
-	}
+	#ifdef DEBUG
+		for(int i =0; i<n; ++i){
+			cout << "RegionSig[" << i << "]: "<< sig.regionSig[i] << endl;
+		}
+	#endif
 	return normvec;
 }
 
@@ -452,7 +569,6 @@ vec correctRegionSig(vec regionSig, vec signs)
 
 nnlayer getSelectionVec(nn *nurnet, nnmap *nurnetMap, locSig sig)
 {
-	printf("Getting to the selection vector portion\n");
 	int i = 0;
 	//Convert the std vector over to an arma vector to detect which level 2 selection does what to this region.
 	//We don't need the actual region vector that is stored in the nnmap as this will be the result.
@@ -465,29 +581,37 @@ nnlayer getSelectionVec(nn *nurnet, nnmap *nurnetMap, locSig sig)
 	vec selection = A2*regionSig + b2;
 
 	selection = selection.for_each( [](mat::elem_type& val) { if(val>0){val=1;} else{val=0;} } );
-	std::vector<vec> localRegions = nurnetMap->getLocalRegions(sig);
+
+	
+	std::vector<std::vector<int>> localRegions = nurnetMap->getLocalRegions(sig.interSig);
 	int numLocalRegions = localRegions.size();
 	vec averageDiff = zeros<vec>(numSelection);
 
 	//The shape of the error here is relevant, is it pointy? is it flat? There will have to be an improvement here.
 	for (i = 0; i < numLocalRegions; ++i)
-	{
-		vec curRegionSelection = A2*localRegions[i] + b2;
+	{	
+		vec curRegionSig = conv_to<vec>::from(localRegions[i]);
+		vec curRegionSelection = A2*curRegionSig + b2;
 		curRegionSelection = curRegionSelection.for_each( [](mat::elem_type& val) { if(val>0){val=1;} else{val=0;} } );
 		curRegionSelection = curRegionSelection - selection;
 		curRegionSelection = curRegionSelection.for_each( [](mat::elem_type& val) { if(val==0){val=0;} else{val=1;} } );
 		averageDiff += curRegionSelection;
+		
 	}
-
 	averageDiff = averageDiff/numLocalRegions;
+	
+
 	vec newSelectionWeight = zeros<vec>(numSelection);
 	for (i = 0; i < numSelection; ++i) {
-		if(averageDiff(i) > 0.35   || true) {
+		if(averageDiff(i)>0.2)
+		{
 			vec curSelectorVec = A2.row(i).t();
-			cout << "Current selection vector: " << curSelectorVec << endl;
 			int n = curSelectorVec.n_rows;
 			double curSelectorOff = b2(i);
-			cout << "Current Selection Offset: " << curSelectorOff << endl; 
+			#ifdef DEBUG
+				cout << "Current selection vector: " << curSelectorVec << endl;
+				cout << "Current Selection Offset: " << curSelectorOff << endl; 
+			#endif
 			// Make the selection vector positive (all values >0), and adjust the offset to compensate.
 			// For each HP for which we have to swap the sign, we have to negate that hyperplane. 
 			// We can do this by manpulating the region signatures.
@@ -500,13 +624,15 @@ nnlayer getSelectionVec(nn *nurnet, nnmap *nurnetMap, locSig sig)
 				else if(curSelectorVec(k)<0){ 
 					signs(k)=-1;
 				}
- 			}
-			cout << "Signs: " << signs << endl;
-			cout << ((signs % signs) - signs)/2 << endl;
+				}
 			curSelectorOff += dot(((signs % signs) - signs)/2,curSelectorVec);
-			cout << "Corrected Selection offset: " << curSelectorOff << endl;
 			curSelectorVec %= signs;
-			cout << "Corrected Selection vec: " << curSelectorVec << endl;
+			#ifdef DEBUG
+				cout << "Signs: " << signs << endl;
+				cout << ((signs % signs) - signs)/2 << endl;
+				cout << "Corrected Selection offset: " << curSelectorOff << endl;
+				cout << "Corrected Selection vec: " << curSelectorVec << endl;
+			#endif
 			vec correctedRegionSig = correctRegionSig(regionSig,signs);
 			int numPositiveSides =0;
 			for(int k = 0; k<n; ++k){
@@ -514,10 +640,12 @@ nnlayer getSelectionVec(nn *nurnet, nnmap *nurnetMap, locSig sig)
 					numPositiveSides++;
 				} 
 			}
-			cout << "Corrected Region Signature: " << correctedRegionSig << endl;
 			double regionValue = dot(curSelectorVec,correctedRegionSig);
-			cout << "Region Value: " << regionValue << endl;
-
+			#ifdef DEBUG
+				cout << "Corrected Region Signature: " << correctedRegionSig << endl;
+				cout << "Region Value: " << regionValue << endl;
+			#endif
+	
 			
 			for (int k = 0; k < n; ++k)	{
 				if(correctedRegionSig(k) == 1){
@@ -532,16 +660,16 @@ nnlayer getSelectionVec(nn *nurnet, nnmap *nurnetMap, locSig sig)
 			}
 			curSelectorOff += dot(((signs % signs) - signs)/2,curSelectorVec);
 			curSelectorVec = curSelectorVec % signs;
-
+	
 			A2.row(i) = curSelectorVec.t();
-			b2(i) = curSelectorOff;
+			b2(i) = curSelectorOff; 
 		} else {
-			newSelectionWeight(i) = 0.01;
+			newSelectionWeight(i) = 0;
 		}
 	}
 
 	A2.insert_cols(0,newSelectionWeight);
-	nnlayer retLayer = {.A = A2, .b = b2};
+	nnlayer retLayer = {.A = 1.2*A2, .b = 1.2*b2};
 	return retLayer;
 }
 
@@ -551,27 +679,51 @@ void smartaddnode(nn *nurnet, vec_data *D)
 	printf("Starting smartaddnode\n");
 	nurnet->print();
 	nnmap *nurnetMap = new nnmap(nurnet,D);
-	locSig maxsig = nurnetMap->getMaxErrRegInter();
-	vec errlocation = nurnetMap->getRegInterAvgErrVec(maxsig);
-	vec normvec = getNormVec(nurnet,nurnetMap,maxsig);
-	cout << "NormVec: "<< endl << normvec << endl;
-	cout << "ErrLoc: "<< endl << errlocation << endl;
-	double offset = -dot(normvec,errlocation);
-	//This should be combined with the above to make sure the normal vector matches the shape of the error area.
-	// If it's a corner of dimension n and there is a HP boundary over which it does not change then its's a corner of dim n-1
-	nnlayer newSecondLayer = getSelectionVec(nurnet,nurnetMap, maxsig);
-	cout << "Adding HP:" << normvec << "With offset: " << offset << endl;
-	cout << "---------------------------------------------------" << endl;
-	cout << "Selection Layer: " << newSecondLayer.A << "Selection offset: " << newSecondLayer.b << endl;
-	nurnet->addnode(normvec.t(),offset,newSecondLayer);
-	nurnet->print();
+
+	mat A = nurnet->getmat(1);
+	vec b = nurnet->getoff(1);
+
+	/*
+	//The "correct" way
+	locSig maxsig = nurnetMap->getMaxErrRegInter(A,b);
+	*/
+	// THe "incorrect" way
+	
+	std::vector<int> interSig = nurnetMap->getMaxErrInter();
+	locSig maxsig = nurnetMap->getOddRegion(interSig, A, b);
+	if(nurnetMap->getRegInterErrPop(maxsig) > 5){
+		vec errlocation = nurnetMap->getRegInterAvgErrVec(maxsig);
+		vec normvec = getNormVec(nurnet,nurnetMap,maxsig);
+		#ifdef DEBUG
+			cout << "NormVec: "<< endl << normvec << endl;
+			cout << "ErrLoc: "<< endl << errlocation << endl;
+		#endif
+		double offset = -dot(normvec,errlocation);
+		//This should be combined with the above to make sure the normal vector matches the shape of the error area.
+		// If it's a corner of dimension n and there is a HP boundary over which it does not change then its's a corner of dim n-1
+		nnlayer newSecondLayer = getSelectionVec(nurnet,nurnetMap, maxsig);
+		#ifdef DEBUG
+			cout << "Adding HP:" << normvec << "With offset: " << offset << endl;
+			cout << "---------------------------------------------------" << endl;
+			cout << "Selection Layer: " << newSecondLayer.A << "Selection offset: " << newSecondLayer.b << endl;
+		#endif
+		nurnet->addnode(normvec.t(),offset,newSecondLayer);
+		nurnet->print();
+	} else {
+		printf("Not enough error points\n");
+	}
+	delete nurnetMap;
 }
 
 #ifndef SLOPETHRESHOLD
-#define SLOPETHRESHOLD 0.03
+#define SLOPETHRESHOLD 0.04
 #endif
 
-double ** adaptivebackprop(nn *nurnet, vec_data *D, double rate, double objerr, int max_gen, int max_nodes, bool ratedecay)
+#ifndef FORCEDDELAY
+#define FORCEDDELAY 20
+#endif
+
+double ** adaptivebackprop(nn *nurnet, vec_data *D, double rate, double objerr, int max_gen, int max_nodes, bool ratedecay, bool images)
 {	
 	double **returnerror = new double*[2];
 	returnerror[0] = new double[max_gen];
@@ -582,25 +734,27 @@ double ** adaptivebackprop(nn *nurnet, vec_data *D, double rate, double objerr, 
 	double curerr = nurnet->calcerror(D,0);
 	double curerrorslope = 0;
 	int curnodes = nurnet->outdim(0);
-	while(i<max_gen && curerr > objerr){
+	fstream fp;
+	if(images)
+		fp = startHistory("imgfiles/hea/latest.nnh", nurnet, D, max_gen);
 
-		char header[100];
-		sprintf(header, "imgfiles/hea/%05dsig.ppm",i);
-		write_nn_to_img(nurnet,header,500,500,0);
-		write_data_to_img(D,header);
-		sprintf(header, "imgfiles/hea/%05dheav.ppm",i);
-		write_nn_to_img(nurnet,header,500,500,1);
-		write_data_to_img(D,header);
-		sprintf(header, "imgfiles/hea/%05dregions.ppm",i);
-		write_nn_regions_to_img(nurnet,header,500,500,1);
-		write_data_to_img(D,header);
-		sprintf(header, "imgfiles/hea/%05dintersections.ppm",i);
-		write_nn_inter_to_img(nurnet,header,500,500,1);
-		write_data_to_img(D,header);
-		sprintf(header, "imgfiles/hea/%05dneuralnetwork.nn",i);
-		nurnet->save(header);
-		printf("Error slope: %f Num Nodes: %d Threshold: %f Current gen:%d\n", curerrorslope, curnodes, -SLOPETHRESHOLD*inputrate,i);
-		
+	while(i<max_gen && curerr > objerr){
+		if(images){
+			char header[100];
+			sprintf(header, "imgfiles/hea/%05dsig.ppm",i);
+			write_nn_to_img(nurnet,header,500,500,0);
+			write_data_to_img(D,header);
+			sprintf(header, "imgfiles/hea/%05dheav.ppm",i);
+			write_nn_to_img(nurnet,header,500,500,1);
+			write_data_to_img(D,header);
+			sprintf(header, "imgfiles/hea/%05dregions.ppm",i);
+			write_nn_regions_to_img(nurnet,header,500,500,1);
+			write_data_to_img(D,header);
+			sprintf(header, "imgfiles/hea/%05dintersections.ppm",i);
+			write_nn_inter_to_img(nurnet,header,500,500,1);
+			write_data_to_img(D,header);
+			printf("Error slope: %f Num Nodes: %d Threshold: %f Current gen:%d\n", curerrorslope, curnodes, -SLOPETHRESHOLD*inputrate,i);
+		}
 		if(ratedecay){inputrate = rate*((max_gen-(double)i)/max_gen);} 
 		nurnet->epochbackprop(D,inputrate);
 		curerr = nurnet->calcerror(D,0);
@@ -609,15 +763,18 @@ double ** adaptivebackprop(nn *nurnet, vec_data *D, double rate, double objerr, 
 		curerrorslope = nurnet->erravgslope(D,0);
 		
 		if(curerrorslope > -SLOPETHRESHOLD*inputrate && curerrorslope < SLOPETHRESHOLD*inputrate 
-			&& curnodes < max_nodes && i-lastHPChange>60){
-
-			printf("Inserting hyperplane. Error slope is %f \n",curerrorslope);
+			&& curnodes < max_nodes && i-lastHPChange>FORCEDDELAY){
+			if(images){
+				printf("Inserting hyperplane. Error slope is %f \n",curerrorslope);
+			}
 
 			smartaddnode(nurnet,D);
 			lastHPChange = i;
 			curnodes = nurnet->outdim(0);	
 		}
 		i++;
+		if(images)
+			appendNNToHistory(nurnet,&fp);
 		if(ratedecay){inputrate = rate*((double)max_gen - i)/max_gen;}
 	}
 	return returnerror;

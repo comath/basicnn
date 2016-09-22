@@ -175,7 +175,7 @@ int pm_img::getheight(){return height;}
 	
 unsigned char pm_img::r(int i, int j){ return r_pixarr[i][j]; }
 unsigned char pm_img::g(int i, int j){ return g_pixarr[i][j]; }
-unsigned char pm_img::b(int i, int j){ return g_pixarr[i][j]; }
+unsigned char pm_img::b(int i, int j){ return b_pixarr[i][j]; }
 
 void pm_img::wr(int i, int j,unsigned char val)
 {

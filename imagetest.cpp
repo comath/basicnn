@@ -17,21 +17,21 @@ using namespace arma;
 using namespace std;
 
 #ifndef NUMGEN
-#define NUMGEN 120
+#define NUMGEN 1000
 #endif
 #ifndef NUMNEUNRT
-#define NUMNEUNRT 10
+#define NUMNEUNRT 80
 #endif
 #ifndef MAXNODES
-#define MAXNODES 25
+#define MAXNODES 15
 #endif
 #ifndef MAXDATA
-#define MAXDATA 2
+#define MAXDATA 5
 #endif
 #ifndef STARTNODES
 #define STARTNODES 3
 #endif
-#define MAXTHREADS 5 // should be a divisor of NUMNEUNET
+#define MAXTHREADS 8 // should be a divisor of NUMNEUNET
 
 struct GED_args {
 	int finaldim;
@@ -81,7 +81,6 @@ void *geterrordata_thread(void *thread_args)
 	if(sigepocherrdat.is_open()){printf("   Done\n");} else {printf("   Failed\n");}
 
 	int numnodes =STARTNODES;
-	printf("Running on nodes %d\n", MAXNODES);
 	int numDataSets=0;
 	int numTotalNets=0;
 	for(numnodes=STARTNODES;numnodes<MAXNODES+1;numnodes++){
@@ -107,7 +106,7 @@ void *geterrordata_thread(void *thread_args)
 					
 					double ** errors;
 					if(adaptive){
-						errors = nurnet->erroradaptivebackprop1(D, 0.05, -1, NUMGEN, numnodes, false);
+						errors = adaptivebackprop(nurnet, D, 0.05, -1, NUMGEN, numnodes, false, false);
 					} else { 
 						errors = nurnet->trainingbackprop(D, 0.05, -1, NUMGEN, false);
 					}
@@ -235,9 +234,9 @@ void geterrordata(int argc, char *argv[])
 
 void animatetraining(int argc, char *argv[])
 {
-	int generations = 1000;
-	int numdata = 1000;
-	int numnodes = 10;
+	int generations = 500;
+	int numdata = 3000;
+	int numnodes = 12;
 	double rate_start = 0.05;
 
 	int i =0;
@@ -256,11 +255,23 @@ void animatetraining(int argc, char *argv[])
 	double rate;
 
 	for(i=0;i< generations;i++){
+		sprintf(header, "imgfiles/hea/%05dsig.ppm",i);
+		write_nn_to_img(nurnet,header,500,500,0);
+		write_data_to_img(D,header);
+		sprintf(header, "imgfiles/hea/%05dheav.ppm",i);
+		write_nn_to_img(nurnet,header,500,500,1);
+		write_data_to_img(D,header);
+		sprintf(header, "imgfiles/hea/%05dregions.ppm",i);
+		write_nn_regions_to_img(nurnet,header,500,500,1);
+		write_data_to_img(D,header);
+		sprintf(header, "imgfiles/hea/%05dintersections.ppm",i);
+		write_nn_inter_to_img(nurnet,header,500,500,1);
+		write_data_to_img(D,header);
+		sprintf(header, "imgfiles/hea/%05dneuralnetwork.nn",i);
+		nurnet->save(header);
 		printf("On generation %d of %d \n",i+1 ,generations);
-		sprintf(header, "imgfiles/train%05d.ppm",i+1);
 		rate = rate_start*((generations-(double)i)/generations);
 		nurnet->epochbackprop(D,rate);
-		write_nn_to_img(nurnet,header,500,500,0);
 	}
 	nurnet->save("test1.nn");
 	delvec_data(D);
@@ -270,9 +281,10 @@ void animatetraining(int argc, char *argv[])
 
 void adaptivetraining(int argc, char *argv[])
 {
-	int generations = 500;
-	int numdata = 3000;
-	int numnodes = 3;
+	int generations = 100;
+	int numdata = 1000;
+	int numnodes = 4;
+	int finalnumnodes = 12;
 
 	printf("Opening %s\n",argv[2]);
 	pm_img *img = new pm_img(argv[2]);
@@ -285,7 +297,7 @@ void adaptivetraining(int argc, char *argv[])
 	mkdir("imgfiles",0777);
 	mkdir("imgfiles/sig",0777);
 	mkdir("imgfiles/hea",0777);
-	adaptivebackprop(nurnet,D, 0.05, -1, generations, 6, false);
+	adaptivebackprop(nurnet,D, 0.05, -1, generations, finalnumnodes, false, false);
 	nurnet->save("test1.nn");
 	delvec_data(D);
 	delete nurnet;
@@ -309,6 +321,13 @@ int main(int argc, char *argv[])
 	if(argc == 3 && argv[1][0] == '-' && argv[1][1] == 'a'){
 		int start_s=clock();
 		adaptivetraining(argc, argv);
+		int stop_s=clock();
+		cout << "time: " << (stop_s-start_s)/double(CLOCKS_PER_SEC)*1000 << endl;
+		return 0;
+	}
+	if(argc == 3 && argv[1][0] == '-' && argv[1][1] == 'b'){
+		int start_s=clock();
+		animatetraining(argc, argv);
 		int stop_s=clock();
 		cout << "time: " << (stop_s-start_s)/double(CLOCKS_PER_SEC)*1000 << endl;
 		return 0;

@@ -148,6 +148,30 @@ end:
 	return false;
 }
 
+bool nn::appendToHistory(fstream *fp)
+{
+	if(fp->is_open()){
+		*fp << depth << endl;
+		printf(".");
+		int i =0;
+		bool At, bt;
+		for(i=0;i<depth;i++){
+			printf(".");
+			At = layers[i].A.save(*fp);
+			bt = layers[i].b.save(*fp);
+			if(!(At) || !(bt)) {
+				goto end;
+			}
+		}
+		printf("Save Successful\n");
+		return true;
+	}
+	
+end:
+	printf("Save failed\n");
+	return false;
+}
+
 void nn::singlebackprop(vec_datum datum, double rate)
 {
 	vec nexterror;
@@ -215,6 +239,7 @@ int nn::outdim(int i) {	return layers[i].A.n_rows; }
 int nn::indim(int i) {	return layers[i].A.n_cols; }
 mat nn::getmat(int layernum){	return layers[layernum].A; }
 vec nn::getoff(int layernum){	return layers[layernum].b; }
+int nn::getDepth(){return depth;}
 
 // To add a polarized plane. 
 // v is the plane (the weights of the edges from the imput nodes), 
@@ -276,329 +301,3 @@ double nn::erravgslope(vec_data *data, int func)
 	return avg/calltimes;
 }
 
-int * minvals(vec v, int numvecs){
-	double x=1000000;  // should be larger than any element of any possible vector
-
-	//THIS NEEDS TO BE IMPROVED TO work with numvecs >2
-	numvecs = 2;
-	int *ret = new int[2];
-	ret[0] = -1;
-	ret[1] = -1;
-	int l = v.n_rows;
-	if(l==1){
-		return ret;
-	} else {
-		ret[1] = 0;
-		ret[0] = 1;
-	}
-	int i = 0;
-	for(i=0;i<l;i++){
-		if(v(i)<0){ v(i)=-v(i);}
-		if(v(i)<x){
-			x = v(i);
-			ret[1] = ret[0];
-			ret[0] = i;
-		}
-	}
-	if(ret[1]==-1){
-		x=1000000;
-		for(i=0;i<l;i++){
-			if(v(i)<x && i != ret[0]){
-				x = v(i);
-				ret[1] = i;
-			}
-		}
-	}
-	if(ret[0]>ret[1]){
-		return ret;
-	} else {
-		l = ret[0];
-		ret[0] = ret[1];
-		ret[1] = l;
-		return ret;
-	}
-	
-}
-
-
-vec computeDistToHyperplanes(mat A,vec b, vec v){
-	int i =0;
-	int n = b.n_rows;
-	vec retvec = zeros<vec>(n);
-	rowvec curvec;
-	rowvec normcurvec;
-	for(i=0;i<n;i++){
-		curvec = A.row(i)/norm(A.row(i));
-		normcurvec = b(i)*curvec/norm(A.row(i));
-		retvec(i) = dot((v.t()-normcurvec),curvec);
-	}
-	return retvec;
-}
-
-vec nn::hyperplaneIntersection(int i, int j)
-{
-	mat B = zeros<mat>(2,2);
-	vec c = zeros<vec>(2);
-	B.row(0) = layers[0].A.row(i); c(0) = layers[0].b(i); 
-	B.row(1) = layers[0].A.row(j); c(1) = layers[0].b(j); 
-	return solve(B,c);
-}
-
-double nn::hyperplaneIntersectionDistance(int i, int j, vec v)
-{
-	return norm(v-this->hyperplaneIntersection(i,j));
-}
-
-
-indexDistance * nn::computeDistToHyperplanesIntersections(vec v)
-{
-	int i,j =0;
-	int n = this->outdim(0);
-	double dist;
-	double smallestDist = 100000;
-	int *index = new int[2];
-	index[0] = -1;
-	index[1] = -1;
-	for(i=0;i<n;i++){
-		for(j=0;j<i;j++){
-			dist = this->hyperplaneIntersectionDistance(i, j, v);
-			if(dist < smallestDist){
-				smallestDist = dist;
-				index[0] = i; index[1] = j;
-			}
-		}
-	}
-	indexDistance *ret = new indexDistance;
-	ret->index = index;
-	ret->dist = smallestDist;
-	return ret;
-}
-
-void delIndexDistance(indexDistance *thisID){
-	delete[] thisID->index;
-	delete thisID;
-}
-
-
-newHPInfo nn::locateNewHP(vec_data *data, int func, double errorThreshold)
-{
-	int i,j=0;
-	int numnodes = this->outdim(0);
-	int inputdim = this->indim();
-	int numdata = data->numdata;
-	struct errtracker **errArray = new errtracker*[numnodes];
-	for(i=0;i<numnodes;i++){ 
-		errArray[i] = new errtracker[i];
-		for(j=0;j<i;j++){
-			errArray[i][j].numerr = 0;
-			errArray[i][j].totvecerr = zeros<vec>(inputdim);
-			errArray[i][j].intersection = this->hyperplaneIntersection(i,j);
-		}
-	}
-	int numerrors =0;
-	vec intersection;
-	for(i=0;i<numdata;i++){
-		double err = norm((data->data[i].value-this->evalnn(data->data[i].coords,func)));
-		if(err > errorThreshold){
-			indexDistance *ID = computeDistToHyperplanesIntersections(data->data[i].coords);
-			intersection = errArray[ID->index[0]][ID->index[1]].intersection;
-			errArray[ID->index[0]][ID->index[1]].totvecerr += (data->data[i].coords);
-			errArray[ID->index[0]][ID->index[1]].numerr++;
-			numerrors++;
-			delIndexDistance(ID);
-		}
-	}
-	//printf("Number of total errors: %d\n", numerrors);
-	int errtrac1=-1;
-	int errtrac2=-1;
-	int comparison = -1;
-	for(i=0;i<numnodes;i++){
-		for(j=0;j<i;j++){
-			//printf("Number of local errors %d near %d,%d\n", errArray[errtrac1][errtrac2].numerr,i,j);
-			if(errArray[i][j].numerr > comparison){
-				comparison = errArray[i][j].numerr;
-				errtrac1=i; errtrac2=j;
-			}
-		}
-	}
-	/*
-	printf("------\n");
-	printf("Selected %d near %d,%d\n", errArray[errtrac1][errtrac2].numerr,i,j);
-	printf("------\n");
-	*/
-	vec errVec = errArray[errtrac1][errtrac2].totvecerr/(errArray[errtrac1][errtrac2].numerr);
-	errVec = (errVec+(this->hyperplaneIntersection(errtrac1,errtrac2)))/2;
-	
-	rowvec normVec = zeros<rowvec>(inputdim);
-	rowvec normal = layers[0].A.row(errtrac1);
-	if(layers[1].A(0,errtrac1)<0){normal = -normal;}
-	normVec += (normal)/(norm(normal));
-	normal = layers[0].A.row(errtrac2);
-
-	if(layers[1].A(0,errtrac2)<0){normal = -normal;}
-	normVec += (normal)/(norm(normal));
-
-	normVec = normVec/(norm(normVec));
-
-	newHPInfo ret;
-	ret.offset = dot(normVec.t(),errVec);
-	ret.normVec = normVec;
-	ret.numerr = errArray[errtrac1][errtrac2].numerr;
-
-	for(i=0;i<numnodes;i++){
-		delete[] errArray[i];
-	}
-	delete[] errArray;
-
-	return ret;
-}
-//Currently this is only for 2 dimensional inputs.
-
-vec nn::calculateSelectionVector()
-{
-	int i=0;
-	int n= this->outdim(0);
-	vec offset = zeros<vec>(n);
-	for(i=0;i<n;i++){
-		if(layers[1].A(0,i)< 0){
-			offset(i) = -layers[1].A(0,i);
-		} else {
-			offset(i) = layers[1].A(0,i);
-		}
-	}
-	vec ret = {1};
-	ret(0) = mean(mean(offset));
-	return ret;
-}
-
-#ifndef ERRORTHRESHOLD
-#define ERRORTHRESHOLD 0.001
-#endif
-
-void nn::smartaddnode1(vec_data *data,int func)
-{
-	/*
-	printf("------------------------------------------------------------------------\n");
-	printf("NN before insert\n");
-	this->print();
-	printf("------------------------------------------------------------------------\n");
-	*/
-	int numnodes = this->outdim(0);
-	int inputdim = this->indim();
-	if(numnodes==1){
-		rowvec v = randu<rowvec>(inputdim);
-		rowvec k = layers[0].A.row(0);
-		double offset = layers[0].b(0);
-		offset = offset*norm(k);
-		if(offset < 0){ offset = -offset;}
-		k = k/norm(k);
-		v = v - dot(v,k)*k;
-		v = v/norm(v);
-		vec w = {1};
-		this->addnode(0,0,v,offset,w);
-	}
-
-	if(numnodes>1){
-		newHPInfo info = this->locateNewHP(data,func,ERRORTHRESHOLD);
-		vec w = this->calculateSelectionVector();
-		if(info.numerr > 5) {
-			this->addnode(0,0,4*info.normVec,4*info.offset,w);
-			layers[1].b(0) += w(0)/2;
-		}
-	}
-	/*
-	printf("------------------------------------------------------------------------\n");
-	printf("NN after insert\n");
-	this->print();
-	printf("------------------------------------------------------------------------\n");
-	*/
-}
-
-#ifndef SLOPETHRESHOLD
-#define SLOPETHRESHOLD 0.01
-#endif
-
-void nn::adaptivebackprop1(vec_data *D, double rate, double objerr, int max_gen, int max_nodes, bool ratedecay)
-{
-	int i=0;
-	int lastHPChange = 0;
-	double inputrate = rate;
-	double curerr = this->calcerror(D,0);
-	double curerrorslope = 0;
-	int curnodes = this->outdim(0);
-	while(i<max_gen && curerr > objerr){
-		if(ratedecay){inputrate = rate*((max_gen-(double)i)/max_gen);} 
-		this->epochbackprop(D,inputrate);
-		curerr = this->calcerror(D,0);
-		curerrorslope = this->erravgslope(D,0);
-		if(curerrorslope > -SLOPETHRESHOLD*inputrate && curerrorslope < SLOPETHRESHOLD*inputrate 
-			&& curnodes < max_nodes && i-lastHPChange>50){
-			this->smartaddnode1(D,1);
-			lastHPChange = i;
-			curnodes = this->outdim(0);	
-		}
-		i++;
-		if(ratedecay){inputrate = rate*((double)max_gen - i)/max_gen;}
-	}
-}
-
-double ** nn::erroradaptivebackprop1(vec_data *D, double rate, double objerr, int max_gen, int max_nodes, bool ratedecay)
-{	
-	double **returnerror = new double*[2];
-	returnerror[0] = new double[max_gen];
-	returnerror[1] = new double[max_gen];
-	int i=0;
-	int lastHPChange = 0;
-	double inputrate = rate;
-	double curerr = this->calcerror(D,0);
-	double curerrorslope = 0;
-	int curnodes = this->outdim(0);
-	while(i<max_gen && curerr > objerr){
-		if(ratedecay){inputrate = rate*((max_gen-(double)i)/max_gen);} 
-		this->epochbackprop(D,inputrate);
-		curerr = this->calcerror(D,0);
-		returnerror[0][i] = curerr;
-		returnerror[1][i] = this->calcerror(D,1);
-		curerrorslope = this->erravgslope(D,0);
-		if(curerrorslope > -SLOPETHRESHOLD*inputrate && curerrorslope < SLOPETHRESHOLD*inputrate 
-			&& curnodes < max_nodes && i-lastHPChange>50){
-			this->smartaddnode1(D,1);
-			lastHPChange = i;
-			curnodes = this->outdim(0);	
-		}
-		i++;
-		if(ratedecay){inputrate = rate*((double)max_gen - i)/max_gen;}
-	}
-	return returnerror;
-}
-
-void nn::animatedadaptivebackprop1(vec_data *D, double rate, double objerr, int max_gen, int max_nodes, bool ratedecay)
-{
-	int i=0;
-	double inputrate = rate;
-	double curerr = this->calcerror(D,0);
-	double curerrorslope = 0
-; 		int curnodes = this->outdim(0);
-	char header[100];
-	int lastHPChange = 0;
-	while(i<max_gen && curerr > objerr){
-		sprintf(header, "imgfiles/sig/train%05d.ppm",i);
-		write_nn_to_img(this,header,500,500,0);
-		write_data_to_img(D,header);
-		sprintf(header, "imgfiles/hea/train%05d.ppm",i);
-		write_nn_to_img(this,header,500,500,1);
-		write_data_to_img(D,header);
-		if(ratedecay){inputrate = rate*((max_gen-(double)i)/max_gen);} 
-		this->epochbackprop(D,inputrate);
-		curerr = this->calcerror(D,0);
-		curerrorslope = this->erravgslope(D,0);
-		printf("Error slope: %f Num Nodes: %d Theshold: %f Current gen:%d\n", curerrorslope, curnodes, -SLOPETHRESHOLD,i);
-		if(-curerrorslope < SLOPETHRESHOLD && curerrorslope < 0 && curnodes < max_nodes && i-lastHPChange>50){
-			printf("Inserting hyperplane. Error slope is %f \n",curerrorslope);
-			this->smartaddnode1(D,1);
-			lastHPChange = i;
-			curnodes = this->outdim(0);	
-		}
-		i++;
-	}
-}

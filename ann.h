@@ -38,6 +38,7 @@ typedef struct indexDistance {
 
 class nn {
 private:
+	bool silence;
 	int depth;
 	nnlayer *layers;
 	void initlayerofnn(int i,int indim, int outdim);
@@ -51,7 +52,9 @@ public:
 	nn(int inputdim, int width1, int width2, int outdim);
 	nn(int inputdim, int width1, int outdim);
 	nn(const char *filename);
+	nn(int d, nnlayer *l);
 	bool save(const char *filename);
+	bool appendToHistory(std::fstream *fp);
 	void print();
 	~nn();
 	void randfillnn(double weight);
@@ -68,6 +71,7 @@ public:
 	int indim();
 	int outdim(int i); // For the in and out of a layer
 	int indim(int i);
+	int getDepth();
 	/*
 	To add a node. 
 	v is the plane (the weights of the edges from the input nodes), 
@@ -82,8 +86,6 @@ public:
 	void adaptivebackprop1(vec_data *D, double rate, double objerr, int max_gen, int max_nodes, bool ratedecay);
 	void animatedadaptivebackprop1(vec_data *D, double rate, double objerr, int max_gen, int max_nodes, bool ratedecay);
 	double ** erroradaptivebackprop1(vec_data *D, double rate, double objerr, int max_gen, int max_nodes, bool ratedecay);
-
-
 };
 
 
