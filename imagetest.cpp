@@ -25,6 +25,7 @@ using namespace std;
 #ifndef MAXNODES
 #define MAXNODES 15
 #endif
+#define NUMDATA = 3000
 #ifndef MAXDATA
 #define MAXDATA 5
 #endif
@@ -66,20 +67,30 @@ void *geterrordata_thread(void *thread_args)
 	} else {
 		sprintf(header, "imgfiles/heaerrordataepoch%02dBackprop.txt",tid);
 	}
+	
 	ofstream heaepocherrdat;
 	heaepocherrdat.open(header);
 	if(heaepocherrdat.is_open()){printf("   Done\n");} else {printf("   Failed\n");}
-
+	heaepocherrdat << "gen,";
+	for(j=0;j<NUMGEN;j++){
+		heaepocherrdat << j << ',';
+	}
+	heaepocherrdat << endl;	
 	printf("Creating the sigmoderrdat epoch error file in thread tid: %d.",tid);
 	if(adaptive){
 		sprintf(header, "imgfiles/sigerrordataepoch%02dAdaptive.txt",tid);
 	} else {
 		sprintf(header, "imgfiles/sigerrordataepoch%02dBackprop.txt",tid);
 	}
+	
 	ofstream sigepocherrdat;
 	sigepocherrdat.open(header);
 	if(sigepocherrdat.is_open()){printf("   Done\n");} else {printf("   Failed\n");}
-
+	sigepocherrdat << "gen,";
+	for(j=0;j<NUMGEN;j++){		
+		sigepocherrdat << j << ',';
+	}
+	sigepocherrdat << endl;	
 	int numnodes =STARTNODES;
 	int numDataSets=0;
 	int numTotalNets=0;
@@ -87,7 +98,7 @@ void *geterrordata_thread(void *thread_args)
 		for(j=0;j<NUMGEN;j++){haverages[j]=0;saverages[j]=0;}
 		for(numDataSets=0;numDataSets<MAXDATA;numDataSets++){
 			printf("Collecting data \n");
-			vec_data *D = get_vec_data_ppm(img, 3000);
+			vec_data *D = get_vec_data_ppm(img, NUMDATA);
 				for(i=begin;i<end;i++){
 					nn *nurnet;
 					if(adaptive){
@@ -97,9 +108,9 @@ void *geterrordata_thread(void *thread_args)
 					}
 					nurnet->randfillnn(0.5);
 					if(adaptive){
-						sprintf(header, "imgfiles/numnodes%03d/netpre/net%03ddata%03dnodespreAdaptive.nn",numnodes,i,numDataSets);
+						sprintf(header, "imgfiles/numnodes%03d/netpre/net%03ddata%03dtid%03dnodes%03dpreAdaptive.nn",numnodes,i,numDataSets,tid,numnodes);
 					} else {
-						sprintf(header, "imgfiles/numnodes%03d/netpre/net%03ddata%03dnodespreBackprop.nn",numnodes,i,numDataSets);
+						sprintf(header, "imgfiles/numnodes%03d/netpre/net%03ddata%03dtid%03dnodes%03dpreBackprop.nn",numnodes,i,numDataSets,tid,numnodes);
 					}
 					nurnet->save(header);
 				
@@ -120,9 +131,9 @@ void *geterrordata_thread(void *thread_args)
 
 
 					if(adaptive){
-						sprintf(header, "imgfiles/numnodes%03d/netpost/net%03ddata%03dnodespostAdaptive.nn",numnodes,i,numDataSets);
+						sprintf(header, "imgfiles/numnodes%03d/netpost/net%03ddata%03dtid%03dnodes%03dpostAdaptive.nn",numnodes,i,numDataSets,tid,numnodes);
 					} else {
-						sprintf(header, "imgfiles/numnodes%03d/netpost/net%03ddata%03dnodespostBackprop.nn",numnodes,i,numDataSets);
+						sprintf(header, "imgfiles/numnodes%03d/netpost/net%03ddata%03dtid%03dnodes%03dpostBackprop.nn",numnodes,i,numDataSets,tid,numnodes);
 					}
 					nurnet->save(header);
 					delete nurnet;
@@ -135,12 +146,12 @@ void *geterrordata_thread(void *thread_args)
 			haverages[j] = (haverages[j])/(numTotalNets);
 		}
 		numTotalNets = 0;
-		heaepocherrdat << numnodes << ',' << 'h' << ',';
+		heaepocherrdat << numnodes <<  " nodes,";
 		for(j=0;j<NUMGEN;j++){
 			heaepocherrdat << std::fixed << std::setprecision(8) << haverages[j] << ',';
 		}
 		heaepocherrdat << endl;
-		sigepocherrdat << numnodes << ',' << 's' << ',';
+		sigepocherrdat << numnodes << " nodes,";
 		for(j=0;j<NUMGEN;j++){
 			sigepocherrdat << std::fixed << std::setprecision(8) << saverages[j] << ',';
 		}
