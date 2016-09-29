@@ -21,10 +21,11 @@ else
 endif
 
 
+#DEBUG = -DDEBUG -g
+GDB = -g
 
 
-
-OPT = -O2
+OPT = -O1
 ## As the Armadillo library uses recursive templates, compilation times depend on the level of optimisation:
 ##
 ## -O0: quick compilation, but the resulting program will be slow
@@ -51,7 +52,7 @@ OPT = -O2
 ## Not recommended unless your code has been first thoroughly tested!
 
 
-CXXFLAGS = $(DEBUG) $(FINAL) $(OPT) $(EXTRA_OPT)
+CXXFLAGS = $(DEBUG) $(GDB) $(FINAL) $(OPT) $(EXTRA_OPT)
 
 all: imagetest ann
 
