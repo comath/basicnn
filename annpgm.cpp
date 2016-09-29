@@ -97,7 +97,7 @@ bool appendNNToHistory(nn *thisnn, fstream *fp)
 		int i =0;
 		bool At, bt;
 		for(i=0;i<depth;i++){
-			printf(".");
+			//printf(".");
 			*fp << thisnn->getmat(i).n_rows << endl;
 			*fp << thisnn->getmat(i).n_cols << endl;
 			At = thisnn->getmat(i).save(*fp,raw_binary);
@@ -106,7 +106,7 @@ bool appendNNToHistory(nn *thisnn, fstream *fp)
 				goto end;
 			}
 		}
-		printf("Save Successful\n");
+		//printf("Save Successful\n");
 		return true;
 	}
 	
@@ -219,6 +219,7 @@ void write_nn_regions_to_img(nn *thisnn, const char filename[], int height, int 
 	delete img;
 }
 
+
 void write_nn_inter_to_img(nn *thisnn, const char filename[], int height, int width, int func)
 {
 	int i=0;
@@ -255,6 +256,7 @@ void write_data_to_img(vec_data *data,const char filename[])
 	pm_img img = pm_img(filename);
 	int height = img.getheight();
 	int width = img.getwidth();
+
 	int i =0;
 	int numdata = data->numdata;
 	int x,y =0;
@@ -276,4 +278,312 @@ void write_data_to_img(vec_data *data,const char filename[])
 		}
 	}
 	img.pm_write(filename);
+}
+
+void write_all_nn_to_image(nn *thisnn,vec_data *data, const char filename[], int height, int width)
+{
+	int i=0;
+	int j=0;
+	int k=0;
+	vec input = vec(2,fill::zeros);
+	std::vector<int> value;
+	vec vvalue;
+	pm_img *img = new pm_img(height*2,width*2,255,6);
+
+	for(i=0;i<height;i++){
+		for(j=0;j<width;j++){
+			input(0) = ((i-(double)height/2)/height)*10;
+			input(1) = ((j-(double)width/2)/width)*10;
+			value = getInterSig(input, thisnn->getmat(0), thisnn->getoff(0));
+			int n = value.size();
+			unsigned char red = 0;
+			unsigned char blue = 0;
+			unsigned char green = 0;
+			for(k =0;k<n;++k){
+				if(k % 3 == 0){ red+= value[k]*256/(pow(2,k/3+1)); }
+				if(k % 3 == 2){ blue+= value[k]*256/(pow(2,k/3+1)); }
+				if(k % 3 == 1){ green+= value[k]*256/(pow(2,k/3+1)); }
+			}
+			img->wr(i+width,j+height,red);
+			img->wg(i+width,j+height,green);
+			img->wb(i+width,j+height,blue);
+			value = getRegionSig(input, thisnn->getmat(0), thisnn->getoff(0));
+			n = value.size();
+			red = 0;
+			blue = 0;
+			green = 0;
+			for(k =0;k<n;++k){
+				if(k % 3 == 0){ red+= value[k]*256/(pow(2,k/3+1)); }
+				if(k % 3 == 2){ blue+= value[k]*256/(pow(2,k/3+1)); }
+				if(k % 3 == 1){ green+= value[k]*256/(pow(2,k/3+1)); }
+			}
+			img->wr(i,j+height,red);
+			img->wg(i,j+height,green);
+			img->wb(i,j+height,blue);
+			if(thisnn->outdim() == 1){
+				vvalue = thisnn->evalnn(input, 1);
+				unsigned char val = (unsigned char)(floor((vvalue(0))*255));
+				img->wr(i+width,j,val);
+				img->wg(i+width,j,val);
+				img->wb(i+width,j,val);
+				vvalue = thisnn->evalnn(input, 0);
+				val = (unsigned char)(floor((vvalue(0))*255));
+				img->wr(i,j,val);
+				img->wg(i,j,val);
+				img->wb(i,j,val);
+			} else if(thisnn->outdim() ==2) { 
+				vvalue = thisnn->evalnn(input, 1);
+				img->wr(i+width,j, (unsigned char)(floor((vvalue(0))*255)));
+				img->wg(i+width,j, (unsigned char)(floor((vvalue(1))*255)));
+				img->wb(i+width,j, (unsigned char)(floor((vvalue(2))*255)));
+				vvalue = thisnn->evalnn(input, 0);
+				img->wr(i,j, (unsigned char)(floor((vvalue(0))*255)));
+				img->wg(i,j, (unsigned char)(floor((vvalue(1))*255)));
+				img->wb(i,j, (unsigned char)(floor((vvalue(2))*255)));
+			} else if(thisnn->outdim() ==2) {
+				vvalue = thisnn->evalnn(input, 1);
+				img->wr(i+width,j, (unsigned char)(floor((vvalue(0))*255)));
+				img->wg(i+width,j, (unsigned char)(floor((vvalue(1))*255)));
+				img->wb(i+width,j, (unsigned char)(0));
+				vvalue = thisnn->evalnn(input, 0);
+				img->wr(i,j, (unsigned char)(floor((vvalue(0))*255)));
+				img->wg(i,j, (unsigned char)(floor((vvalue(1))*255)));
+				img->wb(i,j, (unsigned char)(0));
+			} 
+		}
+	}
+	
+	
+
+	int numdata = data->numdata;
+	int x,y =0;
+	for(i=0;i<numdata;i++){
+		y = ((data->data[i].coords(1)*height/10+(double)height/2));
+		x = ((data->data[i].coords(0)*width/10+(double)width/2));
+		if(img->gettype()==6) {
+			if(data->data[0].value.n_rows == 3){
+				img->wr(x,y,(unsigned char)(floor((data->data[i].value(0))*255)));
+				img->wg(x,y,(unsigned char)(floor((data->data[i].value(1))*255)));
+				img->wb(x,y,(unsigned char)(floor((data->data[i].value(2))*255)));
+
+				img->wr(x+width,y,(unsigned char)(floor((data->data[i].value(0))*255)));
+				img->wg(x+width,y,(unsigned char)(floor((data->data[i].value(1))*255)));
+				img->wb(x+width,y,(unsigned char)(floor((data->data[i].value(2))*255)));
+
+				img->wr(x+width,y+height,(unsigned char)(floor((data->data[i].value(0))*255)));
+				img->wg(x+width,y+height,(unsigned char)(floor((data->data[i].value(1))*255)));
+				img->wb(x+width,y+height,(unsigned char)(floor((data->data[i].value(2))*255)));
+
+				img->wr(x,y+height,(unsigned char)(floor((data->data[i].value(0))*255)));
+				img->wg(x,y+height,(unsigned char)(floor((data->data[i].value(1))*255)));
+				img->wb(x,y+height,(unsigned char)(floor((data->data[i].value(2))*255)));
+			} else if(data->data[0].value.n_rows == 1){
+				img->wr(x,y,(unsigned char)(floor((data->data[i].value(0))*255)));
+				img->wg(x,y,(unsigned char)(floor((data->data[i].value(0))*255)));
+				img->wb(x,y,(unsigned char)(floor((data->data[i].value(0))*255)));
+
+				img->wr(x+width,y,(unsigned char)(floor((data->data[i].value(0))*255)));
+				img->wg(x+width,y,(unsigned char)(floor((data->data[i].value(0))*255)));
+				img->wb(x+width,y,(unsigned char)(floor((data->data[i].value(0))*255)));
+
+				img->wr(x+width,y+height,(unsigned char)(floor((data->data[i].value(0))*255)));
+				img->wg(x+width,y+height,(unsigned char)(floor((data->data[i].value(0))*255)));
+				img->wb(x+width,y+height,(unsigned char)(floor((data->data[i].value(0))*255)));
+
+				img->wr(x,y+height,(unsigned char)(floor((data->data[i].value(0))*255)));
+				img->wg(x,y+height,(unsigned char)(floor((data->data[i].value(0))*255)));
+				img->wb(x,y+height,(unsigned char)(floor((data->data[i].value(0))*255)));
+			}
+		} else if(img->gettype()==5) {
+			img->wr(x,y,(unsigned char)(floor((data->data[i].value(0))*255)));
+		}
+	}
+	img->pm_write(filename);
+}
+
+#define MAXTHREADS 7
+
+struct Print_args {
+	nn *thisnn;
+	pm_img *img;
+	vec_data *data;
+	int tid;
+	int height;
+	int width;
+} Pring_args;
+
+void *write_all_nn_to_image_thread(void *thread_args)
+{
+	struct Print_args *myargs;
+	myargs = (struct Print_args *) thread_args;
+	int tid = myargs->tid;
+	nn *thisnn = myargs->thisnn;
+	pm_img *img = myargs->img;
+ 	vec_data *data = myargs->data;
+	int height = myargs->height;
+	int width = myargs->width;
+	//printf("In thread %d\n",tid );
+
+	int i=0;
+	int j=0;
+	int k=0;
+	vec input = vec(2,fill::zeros);
+	std::vector<int> value;
+	vec vvalue;
+	
+	for(i=tid;i<height;i+=MAXTHREADS){
+		for(j=0;j<width;j++){
+			input(0) = ((i-(double)height/2)/height)*10;
+			input(1) = ((j-(double)width/2)/width)*10;
+			value = getInterSig(input, thisnn->getmat(0), thisnn->getoff(0));
+			int n = value.size();
+			unsigned char red = 0;
+			unsigned char blue = 0;
+			unsigned char green = 0;
+			for(k =0;k<n;++k){
+				if(k % 3 == 0){ red+= value[k]*256/(pow(2,k/3+1)); }
+				if(k % 3 == 2){ blue+= value[k]*256/(pow(2,k/3+1)); }
+				if(k % 3 == 1){ green+= value[k]*256/(pow(2,k/3+1)); }
+			}
+			img->wr(i+width,j+height,red);
+			img->wg(i+width,j+height,green);
+			img->wb(i+width,j+height,blue);
+			value = getRegionSig(input, thisnn->getmat(0), thisnn->getoff(0));
+			n = value.size();
+			red = 0;
+			blue = 0;
+			green = 0;
+			for(k =0;k<n;++k){
+				if(k % 3 == 0){ red+= value[k]*256/(pow(2,k/3+1)); }
+				if(k % 3 == 2){ blue+= value[k]*256/(pow(2,k/3+1)); }
+				if(k % 3 == 1){ green+= value[k]*256/(pow(2,k/3+1)); }
+			}
+			img->wr(i,j+height,red);
+			img->wg(i,j+height,green);
+			img->wb(i,j+height,blue);
+			if(thisnn->outdim() == 1){
+				vvalue = thisnn->evalnn(input, 1);
+				unsigned char val = (unsigned char)(floor((vvalue(0))*255));
+				img->wr(i+width,j,val);
+				img->wg(i+width,j,val);
+				img->wb(i+width,j,val);
+				vvalue = thisnn->evalnn(input, 0);
+				val = (unsigned char)(floor((vvalue(0))*255));
+				img->wr(i,j,val);
+				img->wg(i,j,val);
+				img->wb(i,j,val);
+			} else if(thisnn->outdim() ==2) { 
+				vvalue = thisnn->evalnn(input, 1);
+				img->wr(i+width,j, (unsigned char)(floor((vvalue(0))*255)));
+				img->wg(i+width,j, (unsigned char)(floor((vvalue(1))*255)));
+				img->wb(i+width,j, (unsigned char)(floor((vvalue(2))*255)));
+				vvalue = thisnn->evalnn(input, 0);
+				img->wr(i,j, (unsigned char)(floor((vvalue(0))*255)));
+				img->wg(i,j, (unsigned char)(floor((vvalue(1))*255)));
+				img->wb(i,j, (unsigned char)(floor((vvalue(2))*255)));
+			} else if(thisnn->outdim() ==2) {
+				vvalue = thisnn->evalnn(input, 1);
+				img->wr(i+width,j, (unsigned char)(floor((vvalue(0))*255)));
+				img->wg(i+width,j, (unsigned char)(floor((vvalue(1))*255)));
+				img->wb(i+width,j, (unsigned char)(0));
+				vvalue = thisnn->evalnn(input, 0);
+				img->wr(i,j, (unsigned char)(floor((vvalue(0))*255)));
+				img->wg(i,j, (unsigned char)(floor((vvalue(1))*255)));
+				img->wb(i,j, (unsigned char)(0));
+			} 
+		}
+	}
+	
+	
+
+	int numdata = data->numdata;
+	int x,y =0;
+	for(i=tid;i<numdata;i+=MAXTHREADS){
+		y = ((data->data[i].coords(1)*height/10+(double)height/2));
+		x = ((data->data[i].coords(0)*width/10+(double)width/2));
+		if(img->gettype()==6) {
+			if(data->data[0].value.n_rows == 3){
+				img->wr(x,y,(unsigned char)(floor((data->data[i].value(0))*255)));
+				img->wg(x,y,(unsigned char)(floor((data->data[i].value(1))*255)));
+				img->wb(x,y,(unsigned char)(floor((data->data[i].value(2))*255)));
+
+				img->wr(x+width,y,(unsigned char)(floor((data->data[i].value(0))*255)));
+				img->wg(x+width,y,(unsigned char)(floor((data->data[i].value(1))*255)));
+				img->wb(x+width,y,(unsigned char)(floor((data->data[i].value(2))*255)));
+
+				img->wr(x+width,y+height,(unsigned char)(floor((data->data[i].value(0))*255)));
+				img->wg(x+width,y+height,(unsigned char)(floor((data->data[i].value(1))*255)));
+				img->wb(x+width,y+height,(unsigned char)(floor((data->data[i].value(2))*255)));
+
+				img->wr(x,y+height,(unsigned char)(floor((data->data[i].value(0))*255)));
+				img->wg(x,y+height,(unsigned char)(floor((data->data[i].value(1))*255)));
+				img->wb(x,y+height,(unsigned char)(floor((data->data[i].value(2))*255)));
+			} else if(data->data[0].value.n_rows == 1){
+				img->wr(x,y,(unsigned char)(floor((data->data[i].value(0))*255)));
+				img->wg(x,y,(unsigned char)(floor((data->data[i].value(0))*255)));
+				img->wb(x,y,(unsigned char)(floor((data->data[i].value(0))*255)));
+
+				img->wr(x+width,y,(unsigned char)(floor((data->data[i].value(0))*255)));
+				img->wg(x+width,y,(unsigned char)(floor((data->data[i].value(0))*255)));
+				img->wb(x+width,y,(unsigned char)(floor((data->data[i].value(0))*255)));
+
+				img->wr(x+width,y+height,(unsigned char)(floor((data->data[i].value(0))*255)));
+				img->wg(x+width,y+height,(unsigned char)(floor((data->data[i].value(0))*255)));
+				img->wb(x+width,y+height,(unsigned char)(floor((data->data[i].value(0))*255)));
+
+				img->wr(x,y+height,(unsigned char)(floor((data->data[i].value(0))*255)));
+				img->wg(x,y+height,(unsigned char)(floor((data->data[i].value(0))*255)));
+				img->wb(x,y+height,(unsigned char)(floor((data->data[i].value(0))*255)));
+			}
+		} else if(img->gettype()==5) {
+			img->wr(x,y,(unsigned char)(floor((data->data[i].value(0))*255)));
+		}
+	}
+
+	//printf("Exiting thread %d\n", tid);
+	pthread_exit(NULL);
+}
+
+
+void write_all_nn_to_image_parallel(nn *thisnn,vec_data *data, const char filename[], int height, int width)
+{
+	pthread_t threads[MAXTHREADS];
+	int rc,i;
+	struct Print_args *thread_args = new struct Print_args[MAXTHREADS];
+	bool threadExist[MAXTHREADS];
+	
+	pm_img *img = new pm_img(height*2,width*2,255,6);
+
+	pthread_attr_t attr;
+	void *status;
+	pthread_attr_init(&attr);
+	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
+	
+
+	for(i=0;i<MAXTHREADS;i++){
+		thread_args[i].thisnn = thisnn;
+		thread_args[i].data = data;
+		thread_args[i].img = img;
+		thread_args[i].height = 300;
+		thread_args[i].width = 300;
+		thread_args[i].tid = i;
+		rc = pthread_create(&threads[i], NULL, write_all_nn_to_image_thread, (void *)&thread_args[i]);
+		if (rc){
+			cout << "Error:unable to create thread," << rc << endl;
+			exit(-1);
+		}
+	}
+	
+
+
+	for(i = 0; i<MAXTHREADS;++i){
+		if(threadExist[i]){
+			rc = pthread_join(threads[i], &status);
+			if (rc){
+				cout << "Error:unable to join," << rc << endl;
+				exit(-1);
+			}
+		}
+	}
+	img->pm_write(filename);
 }

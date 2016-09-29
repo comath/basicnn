@@ -23,14 +23,14 @@ using namespace std;
 #define NUMNEUNRT 80
 #endif
 #ifndef MAXNODES
-#define MAXNODES 15
+#define MAXNODES 20
 #endif
-#define NUMDATA = 3000
+#define NUMDATA 4000
 #ifndef MAXDATA
 #define MAXDATA 5
 #endif
 #ifndef STARTNODES
-#define STARTNODES 3
+#define STARTNODES 6
 #endif
 #define MAXTHREADS 8 // should be a divisor of NUMNEUNET
 
@@ -266,20 +266,8 @@ void animatetraining(int argc, char *argv[])
 	double rate;
 
 	for(i=0;i< generations;i++){
-		sprintf(header, "imgfiles/hea/%05dsig.ppm",i);
-		write_nn_to_img(nurnet,header,500,500,0);
-		write_data_to_img(D,header);
-		sprintf(header, "imgfiles/hea/%05dheav.ppm",i);
-		write_nn_to_img(nurnet,header,500,500,1);
-		write_data_to_img(D,header);
-		sprintf(header, "imgfiles/hea/%05dregions.ppm",i);
-		write_nn_regions_to_img(nurnet,header,500,500,1);
-		write_data_to_img(D,header);
-		sprintf(header, "imgfiles/hea/%05dintersections.ppm",i);
-		write_nn_inter_to_img(nurnet,header,500,500,1);
-		write_data_to_img(D,header);
-		sprintf(header, "imgfiles/hea/%05dneuralnetwork.nn",i);
-		nurnet->save(header);
+		sprintf(header, "imgfiles/sig/%05dall.ppm",i);
+		write_all_nn_to_image(nurnet,D,header,300,300);
 		printf("On generation %d of %d \n",i+1 ,generations);
 		rate = rate_start*((generations-(double)i)/generations);
 		nurnet->epochbackprop(D,rate);
@@ -292,10 +280,10 @@ void animatetraining(int argc, char *argv[])
 
 void adaptivetraining(int argc, char *argv[])
 {
-	int generations = 100;
-	int numdata = 1000;
-	int numnodes = 4;
-	int finalnumnodes = 12;
+	int generations = 1000;
+	int numdata = 3000;
+	int numnodes = 6;
+	int finalnumnodes = 15;
 
 	printf("Opening %s\n",argv[2]);
 	pm_img *img = new pm_img(argv[2]);
@@ -308,7 +296,7 @@ void adaptivetraining(int argc, char *argv[])
 	mkdir("imgfiles",0777);
 	mkdir("imgfiles/sig",0777);
 	mkdir("imgfiles/hea",0777);
-	adaptivebackprop(nurnet,D, 0.05, -1, generations, finalnumnodes, false, false);
+	adaptivebackprop(nurnet,D, 0.05, -1, generations, finalnumnodes, false, true);
 	nurnet->save("test1.nn");
 	delvec_data(D);
 	delete nurnet;
