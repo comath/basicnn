@@ -10,6 +10,7 @@
 #include "pgmreader.h"
 #include "annpgm.h"
 #include "nnanalyzer.h"
+#include "nnmap.h"
 
 
 using namespace arma;
@@ -188,7 +189,7 @@ void write_nn_to_img(nn *thisnn, const char filename[], int height, int width, i
 
 
 
-void write_nn_regions_to_img(nn *thisnn, const char filename[], int height, int width, int func)
+void write_nn_regions_to_img(nn *thisnn, nnmap *thismap, const char filename[], int height, int width, int func)
 {
 	int i=0;
 	int j=0;
@@ -200,7 +201,7 @@ void write_nn_regions_to_img(nn *thisnn, const char filename[], int height, int 
 		for(j=0;j<width;j++){
 			input(0) = ((i-(double)height/2)/height)*10;
 			input(1) = ((j-(double)width/2)/width)*10;
-			value = getRegionSig(input, thisnn->getmat(0), thisnn->getoff(0));
+			value = thismap->getRegionSig(input);
 			int n = value.size();
 			unsigned char red = 0;
 			unsigned char blue = 0;
@@ -220,7 +221,7 @@ void write_nn_regions_to_img(nn *thisnn, const char filename[], int height, int 
 }
 
 
-void write_nn_inter_to_img(nn *thisnn, const char filename[], int height, int width, int func)
+void write_nn_inter_to_img(nn *thisnn, nnmap *thismap, const char filename[], int height, int width, int func)
 {
 	int i=0;
 	int j=0;
@@ -232,7 +233,7 @@ void write_nn_inter_to_img(nn *thisnn, const char filename[], int height, int wi
 		for(j=0;j<width;j++){
 			input(0) = ((i-(double)height/2)/height)*10;
 			input(1) = ((j-(double)width/2)/width)*10;
-			value = getInterSig(input, thisnn->getmat(0), thisnn->getoff(0));
+			value = thismap->getInterSig(input);
 			int n = value.size();
 			unsigned char red = 0;
 			unsigned char blue = 0;
@@ -290,11 +291,13 @@ void write_all_nn_to_image(nn *thisnn,vec_data *data, const char filename[], int
 	vec vvalue;
 	pm_img *img = new pm_img(height*2,width*2,255,6);
 
+	nnmap *thismap = new nnmap(thisnn,data);
+
 	for(i=0;i<height;i++){
 		for(j=0;j<width;j++){
 			input(0) = ((i-(double)height/2)/height)*10;
 			input(1) = ((j-(double)width/2)/width)*10;
-			value = getInterSig(input, thisnn->getmat(0), thisnn->getoff(0));
+			value = thismap->getInterSig(input);
 			int n = value.size();
 			unsigned char red = 0;
 			unsigned char blue = 0;
@@ -307,7 +310,7 @@ void write_all_nn_to_image(nn *thisnn,vec_data *data, const char filename[], int
 			img->wr(i+width,j+height,red);
 			img->wg(i+width,j+height,green);
 			img->wb(i+width,j+height,blue);
-			value = getRegionSig(input, thisnn->getmat(0), thisnn->getoff(0));
+			value = thismap->getRegionSig(input);
 			n = value.size();
 			red = 0;
 			blue = 0;
@@ -398,6 +401,7 @@ void write_all_nn_to_image(nn *thisnn,vec_data *data, const char filename[], int
 			img->wr(x,y,(unsigned char)(floor((data->data[i].value(0))*255)));
 		}
 	}
+	delete thismap;
 	img->pm_write(filename);
 }
 
@@ -405,6 +409,7 @@ void write_all_nn_to_image(nn *thisnn,vec_data *data, const char filename[], int
 
 struct Print_args {
 	nn *thisnn;
+	nnmap *thismap;
 	pm_img *img;
 	vec_data *data;
 	int tid;
@@ -418,6 +423,7 @@ void *write_all_nn_to_image_thread(void *thread_args)
 	myargs = (struct Print_args *) thread_args;
 	int tid = myargs->tid;
 	nn *thisnn = myargs->thisnn;
+	nnmap *thismap = myargs->thismap;
 	pm_img *img = myargs->img;
  	vec_data *data = myargs->data;
 	int height = myargs->height;
@@ -431,11 +437,11 @@ void *write_all_nn_to_image_thread(void *thread_args)
 	std::vector<int> value;
 	vec vvalue;
 	
-	for(i=tid;i<height;i+=MAXTHREADS){
+	for(i=tid;i<height;i=i+MAXTHREADS){
 		for(j=0;j<width;j++){
 			input(0) = ((i-(double)height/2)/height)*10;
 			input(1) = ((j-(double)width/2)/width)*10;
-			value = getInterSig(input, thisnn->getmat(0), thisnn->getoff(0));
+			value = thismap->getInterSig(input);
 			int n = value.size();
 			unsigned char red = 0;
 			unsigned char blue = 0;
@@ -448,7 +454,7 @@ void *write_all_nn_to_image_thread(void *thread_args)
 			img->wr(i+width,j+height,red);
 			img->wg(i+width,j+height,green);
 			img->wb(i+width,j+height,blue);
-			value = getRegionSig(input, thisnn->getmat(0), thisnn->getoff(0));
+			value = thismap->getRegionSig(input);
 			n = value.size();
 			red = 0;
 			blue = 0;
@@ -559,13 +565,15 @@ void write_all_nn_to_image_parallel(nn *thisnn,vec_data *data, const char filena
 	pthread_attr_init(&attr);
 	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
 	
+	nnmap *nurnetMap = new nnmap(thisnn,data);
 
 	for(i=0;i<MAXTHREADS;i++){
 		thread_args[i].thisnn = thisnn;
+		thread_args[i].thismap = nurnetMap;
 		thread_args[i].data = data;
 		thread_args[i].img = img;
-		thread_args[i].height = 300;
-		thread_args[i].width = 300;
+		thread_args[i].height = height;
+		thread_args[i].width = width;
 		thread_args[i].tid = i;
 		rc = pthread_create(&threads[i], NULL, write_all_nn_to_image_thread, (void *)&thread_args[i]);
 		if (rc){
@@ -586,4 +594,5 @@ void write_all_nn_to_image_parallel(nn *thisnn,vec_data *data, const char filena
 		}
 	}
 	img->pm_write(filename);
+	delete nurnetMap;
 }

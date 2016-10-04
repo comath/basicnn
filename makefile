@@ -21,7 +21,7 @@ else
 endif
 
 
-#DEBUG = -DDEBUG -g
+DEBUG = -DDEBUG
 GDB = -g
 
 
@@ -56,23 +56,31 @@ CXXFLAGS = $(DEBUG) $(GDB) $(FINAL) $(OPT) $(EXTRA_OPT)
 
 all: imagetest ann
 
-pgmreader: pgmreader.cpp
-	$(CXX) $(CCFLAGS) -c pgmreader.cpp  -o pgmreader.o 
+pgmreader.o: pgmreader.cpp
+	$(CXX) $(CCFLAGS) -c $< -o $@ 
 
-ann: ann.cpp
-	$(CXX) $(CXXFLAGS) pgmreader.cpp annpgm.cpp -o $@  $<  $(LIB_FLAGS)
+annpgm.o: annpgm.cpp pgmreader.cpp
+	$(CXX) $(CCFLAGS) -c $< -o $@ 
 
-nnanalyzer: nnanalyzer.cpp
-	$(CXX) $(CXXFLAGS) ann.cpp -o $@  $<  $(LIB_FLAGS)
+ann.o: ann.cpp pgmreader.cpp annpgm.cpp
+	$(CXX) $(CXXFLAGS) -c $< -o $@  
 
-imagetest: imagetest.cpp pgmreader.o ann.o nnanalyzer.o
-	$(CXX) $(CXXFLAGS) pgmreader.cpp ann.cpp annpgm.cpp nnanalyzer.cpp -o $@ $<  $(LIB_FLAGS) -lpthread -lm
+nnanalyzer.o: nnanalyzer.cpp ann.cpp
+	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-svmtonn: svmtonn.cpp 
-	$(CXX) $(CXXFLAGS)  -o $@  $<  $(LIB_FLAGS)
+nnmap.o: nnmap.cpp ann.cpp
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+imagetest.o: imagetest.cpp pgmreader.cpp ann.cpp nnanalyzer.cpp nnmap.cpp annpgm.cpp
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+imagetest: imagetest.o pgmreader.o ann.o nnanalyzer.o nnmap.o annpgm.o
+	$(CXX) $(CXXFLAGS) $< pgmreader.o ann.o nnanalyzer.o nnmap.o annpgm.o -o $@ $(LIB_FLAGS) -lpthread -lm
+
+
 
 .PHONY: clean
 
 clean:
-	rm -f svmtonn ann imagetest
+	rm -f imagetest
 

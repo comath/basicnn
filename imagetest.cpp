@@ -280,13 +280,21 @@ void animatetraining(int argc, char *argv[])
 
 void adaptivetraining(int argc, char *argv[])
 {
-	int generations = 1000;
+	int generations = 500;
 	int numdata = 3000;
-	int numnodes = 6;
+	int numnodes = 3;
 	int finalnumnodes = 15;
 
-	printf("Opening %s\n",argv[2]);
-	pm_img *img = new pm_img(argv[2]);
+	char *filename;
+	pm_img *img;
+	if(argc == 1){
+		printf("Opening %s\n","invertGreyscale500.pgm");
+		img = new pm_img("invertGreyscale500.pgm");
+	} else {
+		printf("Opening %s\n",argv[2]);
+		img = new pm_img(argv[2]);
+	}
+	
 	int finaldim;
 	if(img->gettype() == 6){ finaldim = 3; } else { finaldim = 1; }
 	printf("Creating Neural Network with dim %d,%d,%d\n", 2,numnodes,finaldim);
@@ -342,11 +350,11 @@ int main(int argc, char *argv[])
 		nurnet->addnode(0,0,v,offset,w);
 		write_nn_to_img(nurnet,"mtest2.ppm",500,500,1);
 	}
-	if( argc == 0){
-		nn *nurnet = new nn(2,5,3);
-		nurnet->randfillnn(0.10);
-		const char *filename = "rando.pgm";
-		write_nn_to_img(nurnet,filename,1000,1000,1);
+	if( argc == 1){
+		int start_s=clock();
+		adaptivetraining(argc, argv);
+		int stop_s=clock();
+		cout << "time: " << (stop_s-start_s)/double(CLOCKS_PER_SEC)*1000 << endl;
 		return 0;
 	}
 }
