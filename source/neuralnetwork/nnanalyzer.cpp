@@ -3,12 +3,14 @@
 #include <map>
 #include <vector>
 #include <set>
-#include <cmath>  
+#include <cmath>
+
 #include "ann.h"
 #include "nnanalyzer.h"
 #include "nnmap.h"
 
-#include "annpgm.h"
+
+#include "../ppmreadwriter/annpgm.h"
 
 using namespace std;
 using namespace arma;
@@ -190,6 +192,9 @@ void refinedsmartaddnode(nn *nurnet, vec_data *D)
 	int targetSelectionVec = -1;
 	for(unsigned i =0; i<A1.n_rows;++i){
 		nurnetMap->refineMap((A1.row(i)).t(),b1(i));
+		#ifdef DEBUG
+			nurnetMap->printRefined();
+		#endif
 		locInfo curLoc = nurnetMap->getRefinedMaxErrRegInter();
 		if((int)curLoc.numerrvec > maxErr){
 			targetLocation = curLoc;
@@ -201,7 +206,10 @@ void refinedsmartaddnode(nn *nurnet, vec_data *D)
 		#endif
 	}
 
-
+	#ifdef DEBUG 
+		cout << "Selected:" << endl;
+		targetLocation.printlocation();
+	#endif
 
 	if(maxErr > 5 && targetSelectionVec != -1){
 		vec errlocation = targetLocation.getErrAvg();
@@ -231,7 +239,7 @@ void refinedsmartaddnode(nn *nurnet, vec_data *D)
 }
 
 #ifndef DEBUG
-#define SLOPETHRESHOLD 0.001
+#define SLOPETHRESHOLD 0.0005
 #define FORCEDDELAY 60
 #define RESOLUTION 1000
 #endif
@@ -268,6 +276,8 @@ double ** adaptivebackprop(nn *nurnet, vec_data *D, double rate, double objerr, 
 			write_all_nn_to_image_parallel(nurnet,D,header,RESOLUTION,RESOLUTION);
 			printf("Error slope: %f Num Nodes: %d Threshold: %f Current gen:%d\n", curerrorslope, curnodes, -SLOPETHRESHOLD*inputrate,i);
 		}
+		nnmap *thismap = new nnmap(nurnet,D);
+		delete thismap;
 		if(ratedecay){inputrate = rate*((max_gen-(double)i)/max_gen);} 
 		nurnet->epochbackprop(D,inputrate);
 		curerr = nurnet->calcerror(D,0);

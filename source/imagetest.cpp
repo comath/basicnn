@@ -6,32 +6,26 @@
 #include <pthread.h>
 #include <sys/stat.h>
 #include <ctime>
-#include "ann.h"
-#include "pgmreader.h"
-#include "annpgm.h"
-#include "nnanalyzer.h"
+
+#include "./neuralnetwork/ann.h"
+#include "./neuralnetwork/nnanalyzer.h"
+
+#include "./ppmreadwriter/pgmreader.h"
+#include "./ppmreadwriter/annpgm.h"
+
 
 #define Malloc(type,n) (type *)malloc((n)*sizeof(type))
 
 using namespace arma;
 using namespace std;
 
-#ifndef NUMGEN
+
 #define NUMGEN 1000
-#endif
-#ifndef NUMNEUNRT
 #define NUMNEUNRT 80
-#endif
-#ifndef MAXNODES
 #define MAXNODES 20
-#endif
 #define NUMDATA 4000
-#ifndef MAXDATA
 #define MAXDATA 5
-#endif
-#ifndef STARTNODES
-#define STARTNODES 6
-#endif
+#define STARTNODES 3
 #define MAXTHREADS 8 // should be a divisor of NUMNEUNET
 
 struct GED_args {
@@ -280,12 +274,11 @@ void animatetraining(int argc, char *argv[])
 
 void adaptivetraining(int argc, char *argv[])
 {
-	int generations = 500;
+	int generations = 100;
 	int numdata = 3000;
 	int numnodes = 3;
-	int finalnumnodes = 15;
+	int finalnumnodes = 6;
 
-	char *filename;
 	pm_img *img;
 	if(argc == 1){
 		printf("Opening %s\n","invertGreyscale500.pgm");

@@ -4,7 +4,6 @@
 #include <fstream>
 #include <cassert> 
 #include "pgmreader.h"
-#define Malloc(type,n) (type *)malloc((n)*sizeof(type))
 
 char nextch(FILE *fp)
 {

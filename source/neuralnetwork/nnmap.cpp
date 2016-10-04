@@ -62,6 +62,9 @@ int getSelectionOfRegion(std::vector<int> regSig,vec selectV,double offset)
 
 void nnmap::setUpHps()
 {
+	#ifdef DEBUG
+		printf("Setting up hyperplanes\n");
+	#endif
 	int i =0;
 	int n = b0.n_rows;
 	rowvec curvec;
@@ -69,8 +72,12 @@ void nnmap::setUpHps()
 	double scaling = 1;
 	for(i=0;i<n;i++){
 		scaling = norm(A0.row(i));
-		hpNormals.push_back(A0.row(i)/scaling);
-		hpoffsets.push_back(b0(i)*curvec/scaling);
+		hpNormals.push_back((A0.row(i)/scaling).t());
+		hpoffsets.push_back((b0(i)*hpNormals[i])/scaling);
+		#ifdef DEBUG
+			cout << "New normal vector: " << endl << hpNormals[i];
+			cout << "New offset vector: " << endl << hpoffsets[i];
+		#endif
 	}
 }
 
@@ -79,13 +86,16 @@ vec nnmap::computeDistToHPS(vec v)
 	unsigned n = hpNormals.size();
 	vec retvec = zeros<vec>(n);
 	for(unsigned i =0;i<n;++i){
-		retvec(i) = abs(dot((hpoffsets[i]+v.t()),hpNormals[i]));
+		retvec(i) = abs(dot(hpoffsets[i]+v,hpNormals[i]));
 	}
 	return retvec;
 }
 
 void nnmap::setUpCashe(nn *thisnn)
 {
+	#ifdef DEBUG
+		printf("Setting Up Cashe\n");
+	#endif
 	A0 = thisnn->getmat(0);
 	b0 = thisnn->getoff(0);
 	A1 = thisnn->getmat(1);
@@ -115,21 +125,31 @@ IntersectionBasis nnmap::getIntersectionBasis(std::set<int> indexes)
 
 double nnmap::computeDist(vec p, std::set<int> indexes)
 {
+	#ifdef DEBUG
+		cout << "Finding the distance between the intersection ";
+		printset(indexes);
+		cout << "and the vector: " << endl << p;
+	#endif
 	IntersectionBasis curIB = this->getIntersectionBasis(indexes);
 	
-	vec px = p+curIB.aSolution;
-	vec pparallel = zeros<vec>(p.n_rows);
-	for (unsigned i = 0; i < (curIB.basis).n_cols; ++i){
-		vec Bi = (curIB.aSolution).col(i);
-		pparallel += dot(Bi,px)*Bi;
-	}
-	return norm(px-pparallel);
-
-	return -1;
+	if(curIB.success){
+		vec px = p+curIB.aSolution;
+		vec pparallel = zeros<vec>(p.n_rows);
+		for (unsigned i = 0; i < (curIB.basis).n_cols; ++i){
+			vec Bi = (curIB.aSolution).col(i);
+			pparallel += dot(Bi,px)*Bi;
+		}
+		return norm(px-pparallel);
+	} else {
+		return -1;
+	}	
 }
 
 std::vector<int> nnmap::getInterSig(vec v)
 {
+	#ifdef DEBUG
+		cout << "Getting the intersection signature for " << endl << v;
+	#endif
 	vec dist = this->computeDistToHPS(v);
 	uvec indsort = sort_index(dist,"accend");
 	unsigned j = 1;
@@ -173,21 +193,22 @@ std::vector<int> nnmap::getRegionSig(vec v)
 	return sig;
 }
 
-nnmap::nnmap(nn *nurnet, vec_data *D){ 
-		#ifdef DEBUG	
-			printf("Creating the NN map\n");
-		#endif
-		int numdata = D->numdata;
-		setUpCashe(nurnet);
-		numHPs = b0.n_rows;
-		dimension = A0.n_cols;
-		bool err = false;
-		for (int i = 0; i < numdata; ++i)
-		{
-			err = (nurnet->calcerror(D->data[i],1));
-			this->addvector(err,D->data[i].coords);
-		}
+nnmap::nnmap(nn *nurnet, vec_data *D)
+{ 
+	#ifdef DEBUG	
+		printf("Creating the NN map\n");
+	#endif
+	int numdata = D->numdata;
+	setUpCashe(nurnet);
+	numHPs = b0.n_rows;
+	dimension = A0.n_cols;
+	bool err = false;
+	for (int i = 0; i < numdata; ++i)
+	{
+		err = (nurnet->calcerror(D->data[i],1));
+		this->addvector(err,D->data[i].coords);
 	}
+}
 
 void nnmap::addvector(bool err, vec v){
 	const vector<int> regionSig = getRegionSig(v);

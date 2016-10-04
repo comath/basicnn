@@ -6,17 +6,17 @@
 #include <sys/stat.h>
 
 #include <armadillo>
-#include "ann.h"
-#include "pgmreader.h"
-#include "annpgm.h"
-#include "nnanalyzer.h"
-#include "nnmap.h"
+#include "../neuralnetwork/ann.h"
+#include "../neuralnetwork/nnanalyzer.h"
+#include "../neuralnetwork/nnmap.h"
 
+#include "annpgm.h"
+#include "pgmreader.h"
 
 using namespace arma;
 using namespace std;
 
-
+#define MAXTHREADS 7
 
 struct vec_data *get_vec_data_ppm(pm_img *img, int numdata)
 {
@@ -405,9 +405,10 @@ void write_all_nn_to_image(nn *thisnn,vec_data *data, const char filename[], int
 	img->pm_write(filename);
 }
 
-#define MAXTHREADS 7
+
 
 struct Print_args {
+	pthread_mutex_t mutexnnmap;
 	nn *thisnn;
 	nnmap *thismap;
 	pm_img *img;
@@ -419,8 +420,10 @@ struct Print_args {
 
 void *write_all_nn_to_image_thread(void *thread_args)
 {
+
 	struct Print_args *myargs;
 	myargs = (struct Print_args *) thread_args;
+	pthread_mutex_t mutexnnmap = myargs->mutexnnmap;
 	int tid = myargs->tid;
 	nn *thisnn = myargs->thisnn;
 	nnmap *thismap = myargs->thismap;
@@ -441,7 +444,10 @@ void *write_all_nn_to_image_thread(void *thread_args)
 		for(j=0;j<width;j++){
 			input(0) = ((i-(double)height/2)/height)*10;
 			input(1) = ((j-(double)width/2)/width)*10;
-			value = thismap->getInterSig(input);
+			pthread_mutex_lock (&mutexnnmap);
+    			value = thismap->getInterSig(input);
+    		pthread_mutex_unlock (&mutexnnmap);
+				
 			int n = value.size();
 			unsigned char red = 0;
 			unsigned char blue = 0;
@@ -554,20 +560,26 @@ void *write_all_nn_to_image_thread(void *thread_args)
 void write_all_nn_to_image_parallel(nn *thisnn,vec_data *data, const char filename[], int height, int width)
 {
 	pthread_t threads[MAXTHREADS];
-	int rc,i;
-	struct Print_args *thread_args = new struct Print_args[MAXTHREADS];
-	bool threadExist[MAXTHREADS];
-	
-	pm_img *img = new pm_img(height*2,width*2,255,6);
+	pthread_mutex_t mutexnnmap;
 
+	int rc = 0;
+	int i = 0;
+	struct Print_args *thread_args = new struct Print_args[MAXTHREADS];
+		
+	pm_img *img = new pm_img(height*2,width*2,255,6);
+	nnmap *nurnetMap = new nnmap(thisnn,data);
+
+	pthread_mutex_init(&mutexnnmap, NULL);
 	pthread_attr_t attr;
 	void *status;
 	pthread_attr_init(&attr);
 	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
 	
-	nnmap *nurnetMap = new nnmap(thisnn,data);
+
+	
 
 	for(i=0;i<MAXTHREADS;i++){
+		thread_args[i].mutexnnmap = mutexnnmap;
 		thread_args[i].thisnn = thisnn;
 		thread_args[i].thismap = nurnetMap;
 		thread_args[i].data = data;
@@ -585,14 +597,14 @@ void write_all_nn_to_image_parallel(nn *thisnn,vec_data *data, const char filena
 
 
 	for(i = 0; i<MAXTHREADS;++i){
-		if(threadExist[i]){
-			rc = pthread_join(threads[i], &status);
-			if (rc){
-				cout << "Error:unable to join," << rc << endl;
-				exit(-1);
-			}
+		rc = pthread_join(threads[i], &status);
+		if (rc){
+			cout << "Error:unable to join," << rc << endl;
+			exit(-1);
 		}
+		
 	}
 	img->pm_write(filename);
 	delete nurnetMap;
+	delete img;
 }

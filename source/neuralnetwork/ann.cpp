@@ -1,7 +1,7 @@
 #include <iostream>
 #include <armadillo>
 #include "ann.h"
-#include "annpgm.h"
+#include "../ppmreadwriter/annpgm.h"
 
 using namespace std;
 using namespace arma;
