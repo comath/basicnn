@@ -172,10 +172,11 @@ end:
 	return false;
 }
 
-void nn::singlebackprop(vec_datum datum, double rate)
+double nn::singlebackprop(vec_datum datum, double rate)
 {
 	vec nexterror;
 	vec error = (evalnn(datum.coords,0)- datum.value);
+	double mse = norm(error);
 	int i = depth;
 	for(i=depth;i>0;i--){
 		mat curlayout = evalnn_layer(datum.coords,0,i);
@@ -186,15 +187,18 @@ void nn::singlebackprop(vec_datum datum, double rate)
 		layers[i-1].b = layers[i-1].b - rate*error;
 		error = (layers[i-1].A.t()*error);
 	}
+	return mse*mse;
 }
 
-void nn::epochbackprop(vec_data *D, double rate)
+double nn::epochbackprop(vec_data *D, double rate)
 {
 	int j =0;
 	int numdata = D->numdata;
+	double mse = 0;
 	for(j=0;j<numdata;j++){
-		this->singlebackprop(D->data[j],rate);
-	}	
+		mse += this->singlebackprop(D->data[j],rate);
+	}
+	return mse/numdata;
 }
 
 double ** nn::trainingbackprop(vec_data *D, double rate, double objerr, int max_gen, bool ratedecay)
@@ -301,3 +305,20 @@ double nn::erravgslope(vec_data *data, int func)
 	return avg/calltimes;
 }
 
+double erravgslope(double curerror)
+{
+	static int calltimes = 0;
+	if(calltimes<RUNAVGWID){calltimes++;}
+
+	static double lasterror = 0;
+	static double slopes[RUNAVGWID];
+	int i=0;
+	for(i=0;i<calltimes-1;i++){
+		slopes[i]=slopes[i+1];
+	}
+	slopes[calltimes-1]= curerr-lasterror;
+	lasterror = curerr;
+	double avg =0;
+	for(i=0;i<calltimes;i++){avg += slopes[i];}
+	return avg/calltimes;
+}
