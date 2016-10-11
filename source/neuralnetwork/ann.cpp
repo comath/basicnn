@@ -305,20 +305,3 @@ double nn::erravgslope(vec_data *data, int func)
 	return avg/calltimes;
 }
 
-double erravgslope(double curerror)
-{
-	static int calltimes = 0;
-	if(calltimes<RUNAVGWID){calltimes++;}
-
-	static double lasterror = 0;
-	static double slopes[RUNAVGWID];
-	int i=0;
-	for(i=0;i<calltimes-1;i++){
-		slopes[i]=slopes[i+1];
-	}
-	slopes[calltimes-1]= curerr-lasterror;
-	lasterror = curerr;
-	double avg =0;
-	for(i=0;i<calltimes;i++){avg += slopes[i];}
-	return avg/calltimes;
-}

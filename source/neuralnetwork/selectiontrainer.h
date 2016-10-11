@@ -10,4 +10,6 @@ typedef struct selector {
 	double b;
 } selector;
 
+selector remakeSelector(selector oldselector, vec rx);
+
 #endif

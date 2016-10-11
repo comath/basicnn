@@ -353,7 +353,7 @@ locInfo nnmap::getRefinedMaxErrRegInter()
 	for (auto& interit: refinedMap){
 		std::vector<locInfo> locReg = interit.second;
 		for(unsigned i =0;i<locReg.size();++i){
-			if(locReg[i].cornerDimension > 0){
+			if(locReg[i].cornerDimension > 1){
 				if((locReg[i].cornerDimension)*locReg[i].numerrvec > maxNumErr){
 					maxNumErr = locReg[i].numerrvec;
 					maxInterSig = interit.first;
@@ -487,12 +487,18 @@ void locInfo::print()
 }
 void locInfo::printlocation()
 {
-	cout << "toterrvec : " << toterrvec << endl;
+	cout << "Intersection Signature:";
+	printsig(interSig);
+	cout << "----------" << endl;
 	cout << "numerrvec : " << numerrvec << endl;
+	cout << "toterrvec : " << endl << toterrvec ;
+	cout << "----------" << endl;
 	cout << "numvec : " << numvec <<  endl;
-	cout << "totvec : " << totvec <<  endl;
+	cout << "totvec : " << endl << totvec;
+	cout << "----------" << endl;
 	cout << "cornerDimension : " << cornerDimension <<  endl;
 	cout << "hyperplanesCrossed : ";
+	cout << "----------" << endl;
 	printset(hyperplanesCrossed);
 	printf("With Regions: \n");
 	for(unsigned i=0; i<includedRegions.size();++i){

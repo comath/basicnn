@@ -8,6 +8,7 @@
 #include "ann.h"
 #include "nnanalyzer.h"
 #include "nnmap.h"
+#include "selectiontrainer.h"
 
 
 #include "../ppmreadwriter/annpgm.h"
@@ -15,6 +16,25 @@
 using namespace std;
 using namespace arma;
 
+#define RUNAVGWID 20
+
+double erravgslope(double curerr)
+{
+	static int calltimes = 0;
+	if(calltimes<RUNAVGWID){calltimes++;}
+
+	static double lasterror = 0;
+	static double slopes[RUNAVGWID];
+	int i=0;
+	for(i=0;i<calltimes-1;i++){
+		slopes[i]=slopes[i+1];
+	}
+	slopes[calltimes-1]= curerr-lasterror;
+	lasterror = curerr;
+	double avg =0;
+	for(i=0;i<calltimes;i++){avg += slopes[i];}
+	return avg/calltimes;
+}
 
 
 vec getRefinedNormVec(mat A, vec v, locInfo li)
@@ -102,74 +122,25 @@ nnlayer getSelectionVec(nn *nurnet, nnmap *nurnetMap, locInfo targetLocation, in
 
 	selection = selection.for_each( [](mat::elem_type& val) { if(val>0){val=1;} else{val=0;} } );
 
+	selector s;
+
 	vec newSelectionWeight = zeros<vec>(numSelection);
 	for (i = 0; i < numSelection; ++i) {
 		if(i == targetSelectionNode)
 		{
-			vec curSelectorVec = A2.row(i).t();
-			int n = curSelectorVec.n_rows;
-			double curSelectorOff = b2(i);
-			#ifdef DEBUG
-				cout << "Current selection vector: " << curSelectorVec << endl;
-				cout << "Current Selection Offset: " << curSelectorOff << endl; 
-			#endif
-			// Make the selection vector positive (all values >0), and adjust the offset to compensate.
-			// For each HP for which we have to swap the sign, we have to negate that hyperplane. 
-			// We can do this by manpulating the region signatures.
-			// This has to be done per selection vector as they will have different sinages. 
-			vec signs = zeros<vec>(n);
-			for(int k=0;k<n;++k) {
-				if(curSelectorVec(k)>0){ 
-					signs(k)=1; 
-				} 
-				else if(curSelectorVec(k)<0){ 
-					signs(k)=-1;
-				}
-			}
-			curSelectorOff += dot(((signs % signs) - signs)/2,curSelectorVec);
-			curSelectorVec %= signs;
-			#ifdef DEBUG
-				cout << "Signs: " << signs << endl;
-				cout << ((signs % signs) - signs)/2 << endl;
-				cout << "Corrected Selection offset: " << curSelectorOff << endl;
-				cout << "Corrected Selection vec: " << curSelectorVec << endl;
-			#endif
-			vec correctedRegionSig = correctRegionSig(regionSig,signs);
-			int numPositiveSides =0;
-			for(int k = 0; k<n; ++k){
-				if(correctedRegionSig(k) == 1){
-					numPositiveSides++;
-				} 
-			}
-			double regionValue = dot(curSelectorVec,correctedRegionSig);
-			#ifdef DEBUG
-				cout << "Corrected Region Signature: " << correctedRegionSig << endl;
-				cout << "Region Value: " << regionValue << endl;
-			#endif
-	
 			
-			for (int k = 0; k < n; ++k)	{
-				if(correctedRegionSig(k) == 1){
-					curSelectorVec(k) -= 1.2*(regionValue + curSelectorOff)/(numPositiveSides);
-				} 
-			}
-			newSelectionWeight(i) = 0.8*(regionValue + curSelectorOff);
+			s.v = A2.row(i).t();
+			s.b = b2(i);
 			
-			if(regionValue > -curSelectorOff){
-				curSelectorOff += newSelectionWeight(i);
-				newSelectionWeight(i) = -newSelectionWeight(i);
-			}
-			curSelectorOff += dot(((signs % signs) - signs)/2,curSelectorVec);
-			curSelectorVec = curSelectorVec % signs;
-	
-			A2.row(i) = curSelectorVec.t();
-			b2(i) = curSelectorOff; 
+			s = remakeSelector(s, regionSig);
 		} else {
 			newSelectionWeight(i) = 0;
 		}
 	}
 
 	A2.insert_cols(0,newSelectionWeight);
+	A2.row(targetSelectionNode) = s.v.t();
+	b2(targetSelectionNode) = s.b;
 	nnlayer retLayer = {.A = A2, .b = b2};
 	return retLayer;
 }
@@ -192,23 +163,18 @@ void refinedsmartaddnode(nn *nurnet, vec_data *D)
 	int targetSelectionVec = -1;
 	for(unsigned i =0; i<A1.n_rows;++i){
 		nurnetMap->refineMap((A1.row(i)).t(),b1(i));
-		#ifdef DEBUG
-			nurnetMap->printRefined();
-		#endif
 		locInfo curLoc = nurnetMap->getRefinedMaxErrRegInter();
 		if((int)curLoc.numerrvec > maxErr){
 			targetLocation = curLoc;
 			maxErr = curLoc.numerrvec;
 			targetSelectionVec = i;
 		}
-		#ifdef DEBUG
-			//nurnetMap->printrefined();
-		#endif
 	}
 
 	#ifdef DEBUG 
-		cout << "Selected:" << endl;
+		cout << "---------------------Selected--------------------" << endl;
 		targetLocation.printlocation();
+		cout << "-------------------------------------------------" << endl;
 	#endif
 
 	if(maxErr > 5 && targetSelectionVec != -1){
@@ -239,9 +205,9 @@ void refinedsmartaddnode(nn *nurnet, vec_data *D)
 }
 
 #ifndef DEBUG
-#define SLOPETHRESHOLD 0.0005
+#define SLOPETHRESHOLD 0.001
 #define FORCEDDELAY 60
-#define RESOLUTION 1000
+#define RESOLUTION 500
 #endif
 
 #ifdef DEBUG
@@ -266,8 +232,7 @@ double ** adaptivebackprop(nn *nurnet, vec_data *D, double rate, double objerr, 
 	//if(images)
 	//	fp = startHistory("imgfiles/hea/latest.nnh", nurnet, D, max_gen);
 
-	
-
+	double error;
 
 	while(i<max_gen && curerr > objerr){
 		if(images){
@@ -279,11 +244,11 @@ double ** adaptivebackprop(nn *nurnet, vec_data *D, double rate, double objerr, 
 		nnmap *thismap = new nnmap(nurnet,D);
 		delete thismap;
 		if(ratedecay){inputrate = rate*((max_gen-(double)i)/max_gen);} 
-		nurnet->epochbackprop(D,inputrate);
+		error = nurnet->epochbackprop(D,inputrate);
 		curerr = nurnet->calcerror(D,0);
 		returnerror[0][i] = curerr;
 		returnerror[1][i] = nurnet->calcerror(D,1);
-		curerrorslope = nurnet->erravgslope(D,0);
+		curerrorslope = erravgslope(error);
 		
 		if(curerrorslope > -SLOPETHRESHOLD*inputrate && curerrorslope < SLOPETHRESHOLD*inputrate 
 			&& curnodes < max_nodes && i-lastHPChange>FORCEDDELAY){

@@ -29,41 +29,57 @@ bool compareVecs(vec x1, vec x2)
 class optimalFunction {
 private:
 	selector s;
-	vec rx;
+	vec rx0;
+	vec rx1;
 public:
 	optimalFunction()
 	{
 		s.v = zeros<vec>(1);
 		s.b = 0;
-		rx = zeros<vec>(1);
+		rx0 = zeros<vec>(1);
+		rx1 = zeros<vec>(1);
+		rx1(0) =1;
 	}
 
 	optimalFunction(selector constructorS, std::vector<int> constructorRx)
 	{
 		s = constructorS;
-		rx = conv_to< vec >::from( constructorRx );
+		rx0 = conv_to< vec >::from( constructorRx );
+		rx1 = conv_to< vec >::from( constructorRx ); 
+		vec temp = zeros<vec>(1);
+		rx0.insert_rows(0,temp);
+		s.v.insert_rows(0,temp);
+		temp(0) = 1;
+		rx1.insert_rows(0,temp);
+		
 	}
 	optimalFunction(selector constructorS, vec constructorRx)
 	{
 		s = constructorS;
-		rx = conv_to< vec >::from( constructorRx );
+		rx0 = constructorRx;
+		rx1 = constructorRx;
+		vec temp = zeros<vec>(1);
+		rx0.insert_rows(0,temp);
+		s.v.insert_rows(0,temp);
+		temp(0) = 1;
+		rx1.insert_rows(0,temp);
 	}
 
 	int compute(vec ry)
 	{
-		vec truncRy = ry.rows(1,rx.n_rows);
-		double result;
-		if(ry(0) == 1){
-			result = dot(s.v,truncRy) + s.b;
-		} else if(compareVecs(truncRy,rx)){
-			result = 2*s.b - dot(s.v,rx)  ;
+		double result = dot(s.v,ry) + s.b;
+		if(compareVecs(ry,rx1)){
+			if(result > 0){
+				return 0;
+			} else {
+				return 1;
+			}
 		} else {
-			result = dot(s.v,truncRy) + s.b;
-		}
-		if(result > 0){
-			return 1;
-		} else {
-			return 0;
+			if(result > 0){
+				return 1;
+			} else {
+				return 0;
+			}
 		}
 	}
 };
@@ -78,25 +94,6 @@ selector singleGradientDecent(selector s, optimalFunction of, vec ry,double rate
 }
 
 #define RUNAVGWID 5000
-
-double erravgslope(double curerr)
-{
-	static int calltimes = 0;
-	if(calltimes<RUNAVGWID){calltimes++;}
-
-	static double lasterror = 0;
-	static double slopes[RUNAVGWID];
-	int i=0;
-	for(i=0;i<calltimes-1;i++){
-		slopes[i]=slopes[i+1];
-	}
-	slopes[calltimes-1]= curerr-lasterror;
-	lasterror = curerr;
-	double avg =0;
-	for(i=0;i<calltimes;i++){avg += slopes[i];}
-	return avg/calltimes;
-}
-
 #define NUMGENERATIONS 100000
 
 
@@ -107,24 +104,32 @@ selector remakeSelector(selector oldselector, vec rx)
 	vec insert = randu<vec>(1); 
 	newselector.v.insert_rows(0,insert/2);
 	newselector.b = oldselector.b/(2*oldselector.v.max());
-	unsigned errcount =0;
-	double nout, error;
 	optimalFunction of = optimalFunction(oldselector,rx);
+
+	vec temp = zeros<vec>(1);
+	vec rx0 = rx;
+	vec rx1 = rx;
+	rx0.insert_rows(0,temp);
+	temp(0) = 1;
+	rx1.insert_rows(0,temp);
+
+
 	for(int i = 0; i< NUMGENERATIONS; i++){
+		if(i%10 == 0){
+			newselector = singleGradientDecent(newselector,of,rx1,0.05);
+		}
+		if(i%11 == 0){
+			newselector = singleGradientDecent(newselector,of,rx0,0.05);
+		}
 		vec ry = randi<vec>( oldselector.v.n_rows + 1, distr_param(0,1) );
-		#ifdef DEBUG
-			//cout << "New Region signature: " << endl << ry;
-			//cout << "OptimalFunction: " << of.compute(ry) << endl;
-			//cout << "Old selector value: " << dot(oldselector.v,ry.rows(1,rx.n_rows)) + oldselector.b << endl;
-		#endif
+		
 		newselector = singleGradientDecent(newselector,of,ry,0.05);
-		nout = 1/(1+exp(-dot(newselector.v,ry) - newselector.b));
-		error = nout - of.compute(ry);		
+
 	}
-	cout << endl << "Errors: " << errcount << '/' << NUMGENERATIONS << endl;
 	return newselector;
 }
 
+/*
 selector randomSelector(int initNumHps,double var)
 {
 	selector ret;
@@ -147,3 +152,4 @@ int main(int argc, char *argv[])
 	cout << "Selector Vector:" << endl << s.v << endl;
 	cout << "Selector Offset: " << s.b << endl;
 }
+*/

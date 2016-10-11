@@ -62,8 +62,8 @@ public:
 	arma::vec getoff(int layer);
 	arma::vec evalnn( arma::vec input, int func);
 	arma::vec evalnn_layer( arma::vec input, int func, int layernum);
-	void singlebackprop(vec_datum datum, double rate);
-	void epochbackprop(vec_data *data, double rate);
+	double singlebackprop(vec_datum datum, double rate);
+	double epochbackprop(vec_data *data, double rate);
 	double ** trainingbackprop(vec_data *data, double rate, double objerr, int max_gen, bool ratedecay);
 	double calcerror(vec_data *data, int func);
 	double calcerror(vec_datum datum, int func);

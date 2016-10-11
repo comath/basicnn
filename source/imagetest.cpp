@@ -274,10 +274,10 @@ void animatetraining(int argc, char *argv[])
 
 void adaptivetraining(int argc, char *argv[])
 {
-	int generations = 100;
-	int numdata = 3000;
+	int generations = 1000;
+	int numdata = 12000;
 	int numnodes = 3;
-	int finalnumnodes = 6;
+	int finalnumnodes = 15;
 
 	pm_img *img;
 	if(argc == 1){
