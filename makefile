@@ -21,11 +21,11 @@ else
 endif
 
 
-DEBUG = -DDEBUG
-GDB = -g
+#DEBUG = -DDEBUG
+#GDB = -g
 
 
-OPT = -O1
+OPT = -O2
 ## As the Armadillo library uses recursive templates, compilation times depend on the level of optimisation:
 ##
 ## -O0: quick compilation, but the resulting program will be slow
@@ -53,34 +53,45 @@ OPT = -O1
 
 
 CXXFLAGS = $(DEBUG) $(GDB) $(FINAL) $(OPT) $(EXTRA_OPT)
+BIN=./bin/
+SOURCE=./source/
+NEURAL=neuralnetwork/
+IMAGE=ppmreadwriter/
 
 all: imagetest ann
 
-pgmreader.o: pgmreader.cpp
-	$(CXX) $(CCFLAGS) -c $< -o $@ 
+selectiontrainer.o: $(SOURCE)$(NEURAL)selectiontrainer.cpp
+	$(CXX) $(CXXFLAGS) -c $< -o $(BIN)$@
 
-annpgm.o: annpgm.cpp pgmreader.cpp
-	$(CXX) $(CCFLAGS) -c $< -o $@ 
+selectiontrainer: selectiontrainer.o
+	$(CXX) $(CXXFLAGS) $(BIN)$<  -o $@ $(LIB_FLAGS) -lpthread -lm
 
-ann.o: ann.cpp pgmreader.cpp annpgm.cpp
-	$(CXX) $(CXXFLAGS) -c $< -o $@  
 
-nnanalyzer.o: nnanalyzer.cpp ann.cpp
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+pgmreader.o: $(SOURCE)$(IMAGE)pgmreader.cpp
+	$(CXX) $(CXXFLAGS) -c $< -o $(BIN)$@ 
 
-nnmap.o: nnmap.cpp ann.cpp
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+annpgm.o: $(SOURCE)$(IMAGE)annpgm.cpp $(SOURCE)$(IMAGE)pgmreader.cpp
+	$(CXX) $(CXXFLAGS) -c $< -o $(BIN)$@ 
 
-imagetest.o: imagetest.cpp pgmreader.cpp ann.cpp nnanalyzer.cpp nnmap.cpp annpgm.cpp
-	$(CXX) $(CXXFLAGS) -c $< -o $@
+ann.o: $(SOURCE)$(NEURAL)ann.cpp $(SOURCE)$(IMAGE)pgmreader.cpp $(SOURCE)$(IMAGE)annpgm.cpp
+	$(CXX) $(CXXFLAGS) -c $< -o $(BIN)$@  
 
-imagetest: imagetest.o pgmreader.o ann.o nnanalyzer.o nnmap.o annpgm.o
-	$(CXX) $(CXXFLAGS) $< pgmreader.o ann.o nnanalyzer.o nnmap.o annpgm.o -o $@ $(LIB_FLAGS) -lpthread -lm
+nnanalyzer.o: $(SOURCE)$(NEURAL)nnanalyzer.cpp $(SOURCE)$(NEURAL)ann.cpp $(SOURCE)$(NEURAL)selectiontrainer.cpp
+	$(CXX) $(CXXFLAGS) -c $< -o $(BIN)$@
+
+nnmap.o: $(SOURCE)$(NEURAL)nnmap.cpp $(SOURCE)$(NEURAL)ann.cpp
+	$(CXX) $(CXXFLAGS) -c $< -o $(BIN)$@
+
+imagetest.o: $(SOURCE)imagetest.cpp $(SOURCE)$(IMAGE)pgmreader.cpp $(SOURCE)$(NEURAL)ann.cpp $(SOURCE)$(NEURAL)nnanalyzer.cpp $(SOURCE)$(NEURAL)nnmap.cpp $(SOURCE)$(IMAGE)annpgm.cpp
+	$(CXX) $(CXXFLAGS) -c $< -o $(BIN)$@
+
+imagetest: imagetest.o pgmreader.o ann.o nnanalyzer.o nnmap.o annpgm.o selectiontrainer.o
+	$(CXX) $(CXXFLAGS)  $(BIN)$< $(BIN)pgmreader.o $(BIN)ann.o $(BIN)nnanalyzer.o $(BIN)nnmap.o $(BIN)annpgm.o $(BIN)selectiontrainer.o -o $@ $(LIB_FLAGS) -lpthread -lm
 
 
 
 .PHONY: clean
 
 clean:
-	rm -f imagetest
+	rm -f imagetest bin/*.o
 
