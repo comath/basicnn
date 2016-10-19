@@ -1,10 +1,3 @@
-#include <iostream>
-#include <armadillo>
-#include <map>
-#include <vector>
-#include <queue>
-#include <cmath>
-
 #include "selectiontrainer.h"
 
 using namespace std;
@@ -94,17 +87,51 @@ selector singleGradientDecent(selector s, optimalFunction of, vec ry,double rate
 }
 
 #define RUNAVGWID 5000
-#define NUMGENERATIONS 100000
+#define NUMGENERATIONS 10000
 
 
-selector remakeSelector(selector oldselector, vec rx)
+std::vector<vec> createSelectionTrainingData(vec_data *data, nn *thisnn,vec newhpNormal, double newhpOffset)
 {	
+	mat A0 = thisnn->getmat(0);
+	vec b0 = thisnn->getoff(0);
+	A0.insert_rows(0,newhpNormal.t());
+	mat offsetv = {newhpOffset};
+	b0.insert_rows(0,offsetv);
+
+	int n = b0.n_rows;
+
+	std::map<std::vector<int>,bool> arificialDataMap;
+	for (int i = 0; i < data->numdata; ++i){
+		vec w = A0*data->data[i].coords + b0;
+		std::vector<int> sig (n,0);
+		for (int i = 0; i < n; ++i)
+		{
+			if(w(i)>0){
+				sig[i] = 1;
+			} else {
+				sig[i] = 0;
+			}
+		}
+		arificialDataMap[sig] =true;
+	}
+	std::vector<vec> arificialData;
+	for (auto& it: arificialDataMap){
+		vec regionSig = conv_to<vec>::from(it.first);
+		arificialData.push_back(regionSig);
+	}
+	return arificialData;
+}
+
+selector remakeSelector(selector oldselector, std::vector<vec> regionData, vec rx)
+{	
+	//Renormalize so that it is easier to train. We make it so that the initial training step is small and retrainable.
 	selector newselector;
 	newselector.v = oldselector.v/(2*oldselector.v.max());
 	vec insert = randu<vec>(1); 
 	newselector.v.insert_rows(0,insert/2);
 	newselector.b = oldselector.b/(2*oldselector.v.max());
 	optimalFunction of = optimalFunction(oldselector,rx);
+
 
 	vec temp = zeros<vec>(1);
 	vec rx0 = rx;
@@ -113,19 +140,21 @@ selector remakeSelector(selector oldselector, vec rx)
 	temp(0) = 1;
 	rx1.insert_rows(0,temp);
 
-
-	for(int i = 0; i< NUMGENERATIONS; i++){
-		if(i%10 == 0){
+	for(int j = 0; j<NUMGENERATIONS;++j ){
+		for(unsigned i = 0; i< regionData.size(); i++){
+			newselector = singleGradientDecent(newselector,of,regionData[i],0.05);
+		}
+		if(j%5 == 0){
 			newselector = singleGradientDecent(newselector,of,rx1,0.05);
 		}
-		if(i%11 == 0){
+		if(j%6 == 0){
 			newselector = singleGradientDecent(newselector,of,rx0,0.05);
 		}
-		vec ry = randi<vec>( oldselector.v.n_rows + 1, distr_param(0,1) );
-		
-		newselector = singleGradientDecent(newselector,of,ry,0.05);
-
 	}
+	// Return a selector of the same length as we recieved so that the blur is more or less correct
+	newselector.v = norm(oldselector.v)*newselector.v/norm(newselector.v);
+	newselector.b = norm(oldselector.v)*newselector.b/norm(newselector.v);
+
 	return newselector;
 }
 

@@ -107,7 +107,7 @@ vec correctRegionSig(vec regionSig, vec signs)
 	return retSig;
 }
 
-nnlayer getSelectionVec(nn *nurnet, nnmap *nurnetMap, locInfo targetLocation, int targetSelectionNode)
+nnlayer getSelectionLayer(nn *nurnet, std::vector<vec> regionData, locInfo targetLocation, int targetSelectionNode)
 {
 	int i = 0;
 	//Convert the std vector over to an arma vector to detect which level 2 selection does what to this region.
@@ -132,7 +132,7 @@ nnlayer getSelectionVec(nn *nurnet, nnmap *nurnetMap, locInfo targetLocation, in
 			s.v = A2.row(i).t();
 			s.b = b2(i);
 			
-			s = remakeSelector(s, regionSig);
+			s = remakeSelector(s,regionData,regionSig);
 		} else {
 			newSelectionWeight(i) = 0;
 		}
@@ -180,24 +180,30 @@ void refinedsmartaddnode(nn *nurnet, vec_data *D)
 	if(maxErr > 5 && targetSelectionVec != -1){
 		vec errlocation = targetLocation.getErrAvg();
 		vec normvec = getRefinedNormVec(A0, b0, targetLocation);
+
 		#ifdef DEBUG
 			cout << "NormVec: "<< endl << normvec << endl;
 			cout << "ErrLoc: "<< endl << errlocation << endl;
 		#endif
+
 		double offset = -dot(normvec,errlocation);
 		//This should be combined with the above to make sure the normal vector matches the shape of the error area.
 		// If it's a corner of dimension n and there is a HP boundary over which it does not change then its's a corner of dim n-1
+		std::vector<vec> newRegions = createSelectionTrainingData(D,nurnet,normvec,offset);
+		nnlayer newSecondLayer = getSelectionLayer(nurnet,newRegions, targetLocation,targetSelectionVec);
 
-		nnlayer newSecondLayer = getSelectionVec(nurnet,nurnetMap, targetLocation,targetSelectionVec);
 		#ifdef DEBUG
 			cout << "Adding HP:" << normvec << "With offset: " << offset << endl;
 			cout << "---------------------------------------------------" << endl;
 			cout << "Selection Layer: " << newSecondLayer.A << "Selection offset: " << newSecondLayer.b << endl;
 		#endif
-		nurnet->addnode(normvec.t(),offset,newSecondLayer);
+
+		nurnet->addnode(2*normvec.t(),2*offset,newSecondLayer);
+
 		#ifdef DEBUG
 			nurnet->print();
 		#endif
+
 	} else {
 		printf("Not enough error points\n");
 	}
@@ -205,7 +211,7 @@ void refinedsmartaddnode(nn *nurnet, vec_data *D)
 }
 
 #ifndef DEBUG
-#define SLOPETHRESHOLD 0.001
+#define SLOPETHRESHOLD 0.01
 #define FORCEDDELAY 60
 #define RESOLUTION 500
 #endif
@@ -239,6 +245,8 @@ double ** adaptivebackprop(nn *nurnet, vec_data *D, double rate, double objerr, 
 			char header[100];
 			sprintf(header, "imgfiles/hea/%05dall.ppm",i);			
 			write_all_nn_to_image_parallel(nurnet,D,header,RESOLUTION,RESOLUTION);
+			//sprintf(header, "gen%05d.pgm",i);			
+			//write_hperrs_to_imgs(nurnet, header, "imgfiles/hperrfields/");
 			printf("Error slope: %f Num Nodes: %d Threshold: %f Current gen:%d\n", curerrorslope, curnodes, -SLOPETHRESHOLD*inputrate,i);
 		}
 		nnmap *thismap = new nnmap(nurnet,D);

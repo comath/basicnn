@@ -236,7 +236,6 @@ double nn::calcerror(vec_data *D, int func)
 	return curerr/numdata;
 }
 
-
 int nn::outdim() {	return layers[depth-1].A.n_rows; }
 int nn::indim() {	return layers[0].A.n_cols; }
 int nn::outdim(int i) {	return layers[i].A.n_rows; }
@@ -304,4 +303,24 @@ double nn::erravgslope(vec_data *data, int func)
 	for(i=0;i<calltimes;i++){avg += slopes[i];}
 	return avg/calltimes;
 }
-
+/*
+nnlayer *nn::getErrorGradient(vec_datum datum)
+{
+	nnlayer gradient = new nnlayer[depth];
+	vec nexterror;
+	vec error = (evalnn(datum.coords,0)- datum.value);
+	double mse = norm(error);
+	int i = depth;
+	mat movemat;
+	for(i=depth;i>0;i--){
+		mat curlayout = evalnn_layer(datum.coords,0,i);
+		mat prelayout = (evalnn_layer(datum.coords,0,i-1)).t();
+		error= error%curlayout%(mat(size(curlayout),fill::ones) - curlayout); 
+		movemat = error*prelayout;
+		gradient[i-1].A = movemat;
+		gradient[i-1].b = rate*error;
+		error = (layers[i-1].A.t()*error);
+	}
+	return gradient;
+}
+*/

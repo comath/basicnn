@@ -484,7 +484,7 @@ void *write_all_nn_to_image_thread(void *thread_args)
 				img->wr(i,j,val);
 				img->wg(i,j,val);
 				img->wb(i,j,val);
-			} else if(thisnn->outdim() ==2) { 
+			} else if(thisnn->outdim() ==3) { 
 				vvalue = thisnn->evalnn(input, 1);
 				img->wr(i+width,j, (unsigned char)(floor((vvalue(0))*255)));
 				img->wg(i+width,j, (unsigned char)(floor((vvalue(1))*255)));
@@ -608,3 +608,39 @@ void write_all_nn_to_image_parallel(nn *thisnn,vec_data *data, const char filena
 	delete nurnetMap;
 	delete img;
 }
+
+/*
+void write_hperrs_to_imgs(nn *thisnn, const char filename[], const char dirname[], const char imgfile[])
+{
+	pm_img *groundTruth = new pm_img(imgfile);
+	int height = groundTruth->getheight();
+	int width = groundTruth->getwidth();
+	int i=0;
+	int j=0;
+	int k=0;
+	int l=0;
+	vec input = vec(2,fill::zeros);
+	vec output = vec(1,fill::zeros);
+	vec value;
+	for(l=0;l<thisnn->outdim(0);++l){
+		pm_img *img = new pm_img(height,width,255,5);
+		for(i=0;i<height;i++){
+			for(j=0;j<width;j++){
+				input(0) = ((i-(double)height/2)/height)*10;
+				input(1) = ((j-(double)width/2)/width)*10;
+				output(0) = ((double)groundTruth->r(i,j))*255;
+				vec_datum datum;
+				datum.coords = input;
+				datum.value = output;
+				value = thisnn->getHPLayerErrorData(datum);
+				char c = value(l)/255;	
+				img->wr(i,j,c);
+			}
+		}
+		char header[100];
+		sprintf(header, "%s%02d%s",dirname,l,filename);
+		img->pm_write(header);
+		delete img;
+	}
+}
+*/

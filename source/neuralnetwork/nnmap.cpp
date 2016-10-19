@@ -458,6 +458,8 @@ int nnmap::getRegInterErrPop(const locSig sig)
 
 
 
+
+
 locInfo::locInfo() 
 {
 	numvec =0;

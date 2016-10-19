@@ -83,6 +83,9 @@ public:
 	void smartaddnode1(vec_data *data, int func);
 	
 	double erravgslope(vec_data *data, int func);
+
+	// Preliminary
+	arma::vec getHPLayerErrorData(vec_datum datum);
 };
 
 

@@ -22,7 +22,7 @@ using namespace std;
 
 #define NUMGEN 1000
 #define NUMNEUNRT 80
-#define MAXNODES 20
+#define MAXNODES 10
 #define NUMDATA 4000
 #define MAXDATA 5
 #define STARTNODES 3
@@ -111,9 +111,9 @@ void *geterrordata_thread(void *thread_args)
 					
 					double ** errors;
 					if(adaptive){
-						errors = adaptivebackprop(nurnet, D, 0.05, -1, NUMGEN, numnodes, false, false);
+						errors = adaptivebackprop(nurnet, D, 0.03, -1, NUMGEN, numnodes, false, false);
 					} else { 
-						errors = nurnet->trainingbackprop(D, 0.05, -1, NUMGEN, false);
+						errors = nurnet->trainingbackprop(D, 0.03, -1, NUMGEN, false);
 					}
 					for(j=0;j<NUMGEN;j++){
 						saverages[j] = saverages[j] + errors[0][j];
@@ -275,14 +275,15 @@ void animatetraining(int argc, char *argv[])
 void adaptivetraining(int argc, char *argv[])
 {
 	int generations = 1000;
-	int numdata = 12000;
-	int numnodes = 3;
+	int numdata = 5000;
+	int numnodes = 6;
 	int finalnumnodes = 15;
+	double rate = 0.03;
 
 	pm_img *img;
 	if(argc == 1){
-		printf("Opening %s\n","invertGreyscale500.pgm");
-		img = new pm_img("invertGreyscale500.pgm");
+		printf("Opening %s\n","nonconvexGreyscale.pgm");
+		img = new pm_img("nonconvexGreyscale.pgm");
 	} else {
 		printf("Opening %s\n",argv[2]);
 		img = new pm_img(argv[2]);
@@ -295,9 +296,9 @@ void adaptivetraining(int argc, char *argv[])
 	nurnet->randfillnn(0.5);
 	vec_data *D = get_vec_data_ppm(img, numdata);
 	mkdir("imgfiles",0777);
-	mkdir("imgfiles/sig",0777);
+	mkdir("imgfiles/hperrfields",0777);
 	mkdir("imgfiles/hea",0777);
-	adaptivebackprop(nurnet,D, 0.05, -1, generations, finalnumnodes, false, true);
+	adaptivebackprop(nurnet,D, rate, -1, generations, finalnumnodes, false, true);
 	nurnet->save("test1.nn");
 	delvec_data(D);
 	delete nurnet;
