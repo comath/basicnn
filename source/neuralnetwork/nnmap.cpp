@@ -47,17 +47,7 @@ int getSelectionOfRegion(std::vector<int> regSig,vec selectV,double offset)
 }
 
 
-#ifndef ERRORTHRESHOLD
-#define ERRORTHRESHOLD 0.01
-#endif
 
-#ifndef TUBETHRESHOLD
-#define TUBETHRESHOLD 0.3
-#endif
-
-#ifndef SCALEDTUBETHRESHOLD
-#define SCALEDTUBETHRESHOLD 2
-#endif
 
 
 void nnmap::setUpHps()
@@ -144,6 +134,14 @@ double nnmap::computeDist(vec p, std::set<int> indexes)
 		return -1;
 	}	
 }
+
+double nnmap::computeDist(vec p, std::vector<int> interSig)
+{
+	std::set<int> index = getSetFromSig(interSig);
+	return this->computeDist(p,index);
+}
+
+#define SCALEDTUBETHRESHOLD 2
 
 std::vector<int> nnmap::getInterSig(vec v)
 {
@@ -516,11 +514,9 @@ void locInfo::addvector(bool err, vec v)
 	totvec+= v;
 	numvec++;
 }
-int locInfo::getNumErr() {return numerrvec;}
-vec locInfo::getTotAvg()	{ return totvec/numvec;	}
-vec locInfo::getErrAvg()	{
-	return toterrvec/numerrvec; 
-}
+int locInfo::getNumErr() { return numerrvec; }
+vec locInfo::getTotAvg() { return totvec/numvec; }
+vec locInfo::getErrAvg() { return toterrvec/numerrvec; }
 
 void locInfo::combine(locInfo other)
 {

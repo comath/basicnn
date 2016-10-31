@@ -25,7 +25,7 @@ using namespace std;
 #define MAXNODES 10
 #define NUMDATA 4000
 #define MAXDATA 5
-#define STARTNODES 3
+#define STARTNODES 6
 #define MAXTHREADS 8 // should be a divisor of NUMNEUNET
 
 struct GED_args {
@@ -111,9 +111,9 @@ void *geterrordata_thread(void *thread_args)
 					
 					double ** errors;
 					if(adaptive){
-						errors = adaptivebackprop(nurnet, D, 0.03, -1, NUMGEN, numnodes, false, false);
+						errors = adaptivebackprop(nurnet, D, 0.015, -1, NUMGEN, numnodes, false, false);
 					} else { 
-						errors = nurnet->trainingbackprop(D, 0.03, -1, NUMGEN, false);
+						errors = nurnet->trainingbackprop(D, 0.015, -1, NUMGEN, false);
 					}
 					for(j=0;j<NUMGEN;j++){
 						saverages[j] = saverages[j] + errors[0][j];
@@ -239,10 +239,10 @@ void geterrordata(int argc, char *argv[])
 
 void animatetraining(int argc, char *argv[])
 {
-	int generations = 500;
-	int numdata = 3000;
-	int numnodes = 12;
-	double rate_start = 0.05;
+	int generations = 1000;
+	int numdata = 12000;
+	int numnodes = 10;
+	double rate = 0.01;
 
 	int i =0;
 	printf("Opening %s\n",argv[2]);
@@ -255,15 +255,12 @@ void animatetraining(int argc, char *argv[])
 	vec_data *D = get_vec_data_ppm(img, numdata);
 	mkdir("imgfiles",0777);
 	char header[100];
-	sprintf(header, "imgfiles/train%05d.ppm",0);
-	write_nn_to_img(nurnet,header,500,500,0);
-	double rate;
+
 
 	for(i=0;i< generations;i++){
 		sprintf(header, "imgfiles/sig/%05dall.ppm",i);
-		write_all_nn_to_image(nurnet,D,header,300,300);
+		write_all_nn_to_image_parallel(nurnet,D,header,1000,1000);
 		printf("On generation %d of %d \n",i+1 ,generations);
-		rate = rate_start*((generations-(double)i)/generations);
 		nurnet->epochbackprop(D,rate);
 	}
 	nurnet->save("test1.nn");
@@ -275,10 +272,10 @@ void animatetraining(int argc, char *argv[])
 void adaptivetraining(int argc, char *argv[])
 {
 	int generations = 1000;
-	int numdata = 5000;
-	int numnodes = 6;
+	int numdata = 12000;
+	int numnodes = 3;
 	int finalnumnodes = 15;
-	double rate = 0.03;
+	double rate = 0.01;
 
 	pm_img *img;
 	if(argc == 1){

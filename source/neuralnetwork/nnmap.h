@@ -70,8 +70,10 @@ private:
 
 
   	vec computeDistToHPS(vec v);
-  	double computeDist(vec p, std::set<int> indexes);
+  	
 public:
+	double computeDist(vec p, std::set<int> indexes);
+	double computeDist(vec p, std::vector<int> indexes);
 	std::vector<int> getInterSig(vec v);
 	std::vector<int> getRegionSig(vec v);
 	//Creates a map 

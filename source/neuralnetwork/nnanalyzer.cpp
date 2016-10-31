@@ -181,6 +181,11 @@ void refinedsmartaddnode(nn *nurnet, vec_data *D)
 		vec errlocation = targetLocation.getErrAvg();
 		vec normvec = getRefinedNormVec(A0, b0, targetLocation);
 
+		// make it so that the normal vector has length such that the average error point takes value 0.8. Constant chosen 
+		// 1/x * ln(0.8/(1-0.8)) = C
+		double distToIntersection = nurnetMap->computeDist(targetLocation.getTotAvg(), targetLocation.interSig);
+		normvec = 1.389*normvec/distToIntersection;
+
 		#ifdef DEBUG
 			cout << "NormVec: "<< endl << normvec << endl;
 			cout << "ErrLoc: "<< endl << errlocation << endl;
@@ -213,7 +218,7 @@ void refinedsmartaddnode(nn *nurnet, vec_data *D)
 #ifndef DEBUG
 #define SLOPETHRESHOLD 0.01
 #define FORCEDDELAY 60
-#define RESOLUTION 500
+#define RESOLUTION 1000
 #endif
 
 #ifdef DEBUG

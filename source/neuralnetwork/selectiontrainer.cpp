@@ -155,6 +155,14 @@ selector remakeSelector(selector oldselector, std::vector<vec> regionData, vec r
 	newselector.v = norm(oldselector.v)*newselector.v/norm(newselector.v);
 	newselector.b = norm(oldselector.v)*newselector.b/norm(newselector.v);
 
+	double mse = 0;
+	for(unsigned i = 0; i< regionData.size(); i++){
+		double nout = 1/(1+exp(-dot(newselector.v,regionData[i]) - newselector.b));
+		double err = nout - of.compute(regionData[i]);
+		mse += err*err;
+	}
+	mse = mse/regionData.size();
+	printf("The mean square error in the selection node recreation is %f\n",mse );
 	return newselector;
 }
 
