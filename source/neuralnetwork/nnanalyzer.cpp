@@ -37,7 +37,7 @@ double erravgslope(double curerr)
 }
 
 
-vec getRefinedNormVec(mat A, vec v, locInfo li)
+vec getRefinedNormVec(mat A, vec b, locInfo li)
 {
 	#ifdef DEBUG
 		printf("Getting Norm Vec\n");
@@ -77,9 +77,9 @@ vec getRefinedNormVec(mat A, vec v, locInfo li)
 		vec v = A.row(i).t();
 		v = v/norm(v);
 		if(li.interSig[i] == 1){
-			if(dot(v,regionRep)>0)
+			if(dot(v,regionRep)+b(i)<0)
 				normvec += v;
-			if(dot(v,regionRep)<0)
+			if(dot(v,regionRep)+b(i)>0)
 				normvec -= v;
 		}
 	}
@@ -218,7 +218,7 @@ void refinedsmartaddnode(nn *nurnet, vec_data *D)
 #ifndef DEBUG
 #define SLOPETHRESHOLD 0.01
 #define FORCEDDELAY 60
-#define RESOLUTION 1000
+#define RESOLUTION 250
 #endif
 
 #ifdef DEBUG
