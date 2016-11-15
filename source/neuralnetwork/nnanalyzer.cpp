@@ -252,7 +252,7 @@ double ** adaptivebackprop(nn *nurnet, vec_data *D, double rate, double objerr, 
 			write_all_nn_to_image_parallel(nurnet,D,header,RESOLUTION,RESOLUTION);
 			//sprintf(header, "gen%05d.pgm",i);			
 			//write_hperrs_to_imgs(nurnet, header, "imgfiles/hperrfields/");
-			printf("Error slope: %f Num Nodes: %d Threshold: %f Current gen:%d\n", curerrorslope, curnodes, -SLOPETHRESHOLD*inputrate,i);
+			//printf("Error slope: %f Num Nodes: %d Threshold: %f Current gen:%d\n", curerrorslope, curnodes, -SLOPETHRESHOLD*inputrate,i);
 		}
 		nnmap *thismap = new nnmap(nurnet,D);
 		delete thismap;
@@ -266,7 +266,7 @@ double ** adaptivebackprop(nn *nurnet, vec_data *D, double rate, double objerr, 
 		if(curerrorslope > -SLOPETHRESHOLD*inputrate && curerrorslope < SLOPETHRESHOLD*inputrate 
 			&& curnodes < max_nodes && i-lastHPChange>FORCEDDELAY){
 			if(images){
-				printf("Inserting hyperplane. Error slope is %f \n",curerrorslope);
+				printf("Inserting hyperplane at generation %d. Error slope is %f \n",i,curerrorslope);
 			}
 
 			refinedsmartaddnode(nurnet,D);

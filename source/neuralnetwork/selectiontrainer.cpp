@@ -144,10 +144,10 @@ selector remakeSelector(selector oldselector, std::vector<vec> regionData, vec r
 		for(unsigned i = 0; i< regionData.size(); i++){
 			newselector = singleGradientDecent(newselector,of,regionData[i],0.05);
 		}
-		if(j%53 == 0){
+		if(j%5 == 0){
 			newselector = singleGradientDecent(newselector,of,rx1,0.05);
 		}
-		if(j%47 == 0){
+		if(j%6 == 0){
 			newselector = singleGradientDecent(newselector,of,rx0,0.05);
 		}
 	}
